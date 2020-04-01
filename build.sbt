@@ -22,7 +22,7 @@ lazy val commonSettings = Seq(
   organization := "org.rzlabs",
   version := "0.1.0-SNAPSHOT",
   
-  scalaVersion := "2.12.11"
+  scalaVersion := "2.11.12"
 )
 
 lazy val root = (project in file("."))
