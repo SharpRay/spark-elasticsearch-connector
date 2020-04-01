@@ -12,7 +12,7 @@ import org.apache.http.impl.client.{CloseableHttpClient, HttpClients}
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager
 import org.apache.http.util.EntityUtils
 import org.apache.spark.sql.MyLogging
-import org.rzlabs.elastic.ElasticIndexException
+import org.rzlabs.elastic.{ElasticColumn, ElasticIndex, ElasticIndexException}
 import org.rzlabs.elastic.metadata.ElasticOptions
 import org.fasterxml.jackson.databind.ObjectMapper._
 
@@ -95,8 +95,6 @@ trait CancellableHolder {
 class ElasticClient(val host: String,
                     val port: Int) extends MyLogging {
 
-  import ElasticClient._
-
   private var cancellableHolder: CancellableHolder = null
 
   def this(t: (String, Int)) = {
@@ -104,14 +102,14 @@ class ElasticClient(val host: String,
   }
 
   def this(s: String) = {
-    this(hostPort(s))
+    this(ElasticClient.hostPort(s))
   }
 
   def setCancellableHolder(c: CancellableHolder) = {
     cancellableHolder = c
   }
 
-  protected def httpClient: CloseableHttpClient = {
+  def httpClient: CloseableHttpClient = {
     val sTime = System.currentTimeMillis()
     val r = HttpClients.custom().setConnectionManager(ConnectionManager.pool).build()
     val eTime = System.currentTimeMillis()
@@ -120,7 +118,7 @@ class ElasticClient(val host: String,
     r
   }
 
-  protected def release(resp: CloseableHttpResponse): Unit = {
+  def release(resp: CloseableHttpResponse): Unit = {
     Try {
       if (resp != null) EntityUtils.consume(resp.getEntity)
     } recover {
@@ -129,8 +127,8 @@ class ElasticClient(val host: String,
     }
   }
 
-  protected def getRequest(url: String) = new ElasticHttpGet(url, cancellableHolder)
-  protected def postRequest(url: String) = new ElasticHttpPost(url, cancellableHolder)
+  def getRequest(url: String) = new ElasticHttpGet(url, cancellableHolder)
+  def postRequest(url: String) = new ElasticHttpPost(url, cancellableHolder)
 
   protected def addHeaders(req: HttpRequestBase, reqHeaders: Map[String, String]): Unit = {
     if (reqHeaders != null) {
@@ -139,7 +137,7 @@ class ElasticClient(val host: String,
   }
 
   @throws[ElasticIndexException]
-  protected def perform(url: String,
+  def perform(url: String,
                         reqType: String => HttpRequestBase,
                         payload: ObjectNode,
                         reqHeaders: Map[String, String]): String = {
@@ -181,13 +179,13 @@ class ElasticClient(val host: String,
     })
   }
 
-  protected def post(url: String,
+  def post(url: String,
                      payload: ObjectNode,
                      reqHeaders: Map[String, String] = null): String = {
     perform(url, postRequest _, payload, reqHeaders);
   }
 
-  protected def get(url: String,
+  def get(url: String,
                     payload: ObjectNode = null,
                     reqHeaders: Map[String, String] = null): String = {
     perform(url, getRequest _, payload, reqHeaders)
@@ -197,6 +195,28 @@ class ElasticClient(val host: String,
     val url = s"http://$host:$port/_cluster/health"
     val is: String = get(url)
     jsonMapper.readValue(is, new TypeReference[ClusterStatus] {})
+  }
+
+  @throws[ElasticIndexException]
+  def mappings(index: String, `type`: String = null) = {
+    val url = s"http://$host:$port/${index}/_mappings"
+    val resp: String = get(url)
+    logWarning(s"The json response of '_mappings' query: \n$resp")
+    val mappingsResp: Map[String, IndexMappings] = jsonMapper.readValue(resp,
+      new TypeReference[Map[String, IndexMappings]] {})
+    if (`type` == null) {
+      ElasticIndex(index, mappingsResp.get(index).get.mappings.head._1,
+        mappingsResp.get(index).get.mappings.head._2.properties.map(prop => {
+          (prop._1, ElasticColumn(prop._1, prop._2))
+        })
+      )
+    } else {
+      ElasticIndex(index, `type`,
+        mappingsResp.get(index).get.mappings.get(`type`).get.properties.map(prop => {
+          (prop._1, ElasticColumn(prop._1, prop._2))
+        })
+      )
+    }
   }
 
 }

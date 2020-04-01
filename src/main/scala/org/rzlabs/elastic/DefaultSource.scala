@@ -2,7 +2,8 @@ package org.rzlabs.elastic
 
 import org.apache.spark.sql.{MyLogging, SQLContext}
 import org.apache.spark.sql.sources.{BaseRelation, RelationProvider}
-import org.rzlabs.elastic.metadata.ElasticOptions
+import org.rzlabs.elastic.metadata.{ElasticMetadataCache, ElasticOptions}
+import org.rzlabs.elasticsearch.ElasticRelation
 
 class DefaultSource extends RelationProvider with MyLogging {
 
@@ -13,7 +14,7 @@ class DefaultSource extends RelationProvider with MyLogging {
     val host: String = parameters.getOrElse(ELASTIC_HOST, "localhost:9200")
 
     val index: String = parameters.getOrElse(ELASTIC_INDEX,
-      throw new ElasticDataSourceException(
+      throw new ElasticIndexException(
         s"'$ELASTIC_INDEX' must be specified for Elasticsearch datasource."
       )
     )
@@ -26,13 +27,17 @@ class DefaultSource extends RelationProvider with MyLogging {
     val poolMaxConnections: Int = parameters.getOrElse(CONN_POOL_MAX_CONNECTIONS,
       DEFAULT_CONN_POOL_MAX_CONNECTIONS).toInt
 
-    val elasticsearchOptions = ElasticOptions(host,
+    val elasticOptions = ElasticOptions(host,
       index,
       `type`,
       poolMaxConnectionsPerRoute,
       poolMaxConnections)
 
+    val elasticRelationInfo = ElasticMetadataCache.elasticRelation(elasticOptions)
 
+    val elasticRelation = ElasticRelation(elasticRelationInfo)(sqlContext)
+
+    elasticRelation
   }
 }
 
