@@ -15,7 +15,7 @@ import org.rzlabs.elastic.ElasticDataType
   new JsonSubTypes.Type(value = classOf[DoubleProperty], name = "double"),
   new JsonSubTypes.Type(value = classOf[FloatProperty], name = "float"),
   new JsonSubTypes.Type(value = classOf[BooleanProperty], name = "boolean"),
-  new JsonSubTypes.Type(value = classOf[NestedProperty], name = "nested"),
+  new JsonSubTypes.Type(value = classOf[NestedProperty], name = "nested")
 ))
 sealed trait IndexProperty extends Serializable {
   def dataType: ElasticDataType.Value
