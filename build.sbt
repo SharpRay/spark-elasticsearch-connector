@@ -1,6 +1,6 @@
 val sparkVersion = "2.4.5"
 val jodaVersion = "2.10.5"
-val jacksonVersion = "2.6.5"
+val jacksonVersion = "2.10.3"
 val jacksonModuleScalaVersion = "2.10.3"
 val apacheHttpVersion = "4.5.11"
 
