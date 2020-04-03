@@ -211,14 +211,17 @@ class ElasticClient(val host: String,
         })
       )
     } else {
+      val indexMappings: IndexMappings = mappingsResp.get(index).get
+      if (!indexMappings.mappings.contains(`type`)) {
+        throw new ElasticIndexException(s"The type '${`type`}' do not exist.")
+      }
       ElasticIndex(index, `type`,
-        mappingsResp.get(index).get.mappings.get(`type`).get.properties.map(prop => {
+        indexMappings.mappings.get(`type`).get.properties.map(prop => {
           (prop._1, ElasticColumn(prop._1, prop._2))
         })
       )
     }
   }
-
 }
 
 object ElasticClient {
