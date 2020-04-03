@@ -31,6 +31,7 @@ object ElasticColumn {
 }
 
 object ElasticDataType extends Enumeration {
+  val NotKnown = Value("NOTKNOWN")
   val Text = Value("TEXT")
   val Keyword = Value("KEYWORD")
   val Long = Value("LONG")

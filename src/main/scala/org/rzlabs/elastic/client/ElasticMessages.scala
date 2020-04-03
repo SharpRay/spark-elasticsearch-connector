@@ -3,7 +3,10 @@ package org.rzlabs.elastic.client
 import com.fasterxml.jackson.annotation.{JsonIgnoreProperties, JsonProperty, JsonSubTypes, JsonTypeInfo}
 import org.rzlabs.elastic.ElasticDataType
 
-@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.EXISTING_PROPERTY, property = "type")
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME,
+  include = JsonTypeInfo.As.EXISTING_PROPERTY,
+  property = "type",
+  defaultImpl = classOf[NotKnownProperty])
 @JsonSubTypes(Array(
   new JsonSubTypes.Type(value = classOf[TextProperty], name = "text"),
   new JsonSubTypes.Type(value = classOf[KeywordProperty], name = "keyword"),
@@ -19,6 +22,10 @@ import org.rzlabs.elastic.ElasticDataType
 ))
 sealed trait IndexProperty extends Serializable {
   def dataType: ElasticDataType.Value
+}
+
+case class NotKnownProperty() extends IndexProperty {
+  override def dataType = ElasticDataType.NotKnown
 }
 
 case class TextProperty(fields: Map[String, IndexProperty],
