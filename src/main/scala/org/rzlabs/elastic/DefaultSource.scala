@@ -1,5 +1,6 @@
 package org.rzlabs.elastic
 
+import org.apache.spark.sql.rzlabs.ElasticBaseModule
 import org.apache.spark.sql.{MyLogging, SQLContext}
 import org.apache.spark.sql.sources.{BaseRelation, RelationProvider}
 import org.rzlabs.elastic.metadata.{ElasticMetadataCache, ElasticOptions}
@@ -47,9 +48,46 @@ class DefaultSource extends RelationProvider with MyLogging {
 
     elasticRelation
   }
+
+  /**
+   * There are 3 places to initialize a [[BaseRelation]] object by calling
+   * the `resolveRelation` method of [[org.apache.spark.sql.execution.datasources.DataSource]]:
+   *
+   *   1. In the `run(sparkSession: SparkSession)` method in
+   *      [[org.apache.spark.sql.execution.command.CreateDataSourceTableCommand]]
+   *      when executing sql "create table using ...";
+   *   2. In the `load(paths: String*)` method in [[org.apache.spark.sql.DataFrameReader]]
+   *      when calling "spark.read.format(org.rzlabs.druid).load()";
+   *   3. In the `load` method of the LoadingCache object "cachedDataSourceTables" in
+   *      [[org.apache.spark.sql.hive.HiveMetastoreCatalog]] which called from the root
+   *      method of `apply` in [[org.apache.spark.sql.catalyst.analysis.Analyzer.ResolveRelations]]
+   *      which belongs to "resolution" rule batch in the logical plan analyzing phase of the
+   *      execution of "select ...".
+   *
+   * None of the 3 cases generates [[org.apache.spark.sql.execution.SparkPlan]] in DataFrame's
+   * `queryExecution` of [[org.apache.spark.sql.execution.QueryExecution]], so we can
+   * add druid-related physical rules in the `resolveRelation` method in [[DefaultSource]].
+   *
+   * @param sqlContext
+   * @param druidOptions
+   */
+  private def addPhysicalRules(sqlContext: SQLContext, options: ElasticOptions) = {
+    rulesLock.synchronized {
+      if (!physicalRUlesAdded) {
+        sqlContext.sparkSession.experimental.extraStrategies ++=
+          ElasticBaseModule.physicalRules(sqlContext, options)
+        physicalRUlesAdded = true
+      }
+    }
+  }
+
 }
 
 object DefaultSource {
+
+  private val rulesLock = new Object
+
+  private var physicalRUlesAdded = false
 
   val ELASTIC_HOST = "host"
   val ELASTIC_INDEX = "index"
