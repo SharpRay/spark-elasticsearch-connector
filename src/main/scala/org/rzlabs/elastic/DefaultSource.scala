@@ -27,11 +27,15 @@ class DefaultSource extends RelationProvider with MyLogging {
     val poolMaxConnections: Int = parameters.getOrElse(CONN_POOL_MAX_CONNECTIONS,
       DEFAULT_CONN_POOL_MAX_CONNECTIONS).toInt
 
+    val cacheIndexMappings: Boolean = parameters.getOrElse(CACHE_INDEX_MAPPINGS,
+      DEFAULT_CACHE_INDEX_MAPPINGS).toBoolean
+
     val elasticOptions = ElasticOptions(host,
       index,
       `type`,
       poolMaxConnectionsPerRoute,
-      poolMaxConnections)
+      poolMaxConnections,
+      cacheIndexMappings)
 
     val elasticRelationInfo = ElasticMetadataCache.elasticRelation(elasticOptions)
 
@@ -58,4 +62,7 @@ object DefaultSource {
    */
   val CONN_POOL_MAX_CONNECTIONS = "maxConnections"
   val DEFAULT_CONN_POOL_MAX_CONNECTIONS = "100"
+
+  val CACHE_INDEX_MAPPINGS = "cacheIndexMappings"
+  val DEFAULT_CACHE_INDEX_MAPPINGS = "true"
 }

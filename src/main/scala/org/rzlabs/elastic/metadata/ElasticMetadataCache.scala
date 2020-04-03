@@ -32,7 +32,7 @@ object ElasticMetadataCache extends ElasticMetadataCache with MyLogging with Ela
   def getClusterInfo(options: ElasticOptions) = {
     val host = options.host
     cache.synchronized {
-      if (cache.contains(host)) {
+      if (options.cacheIndexMappings && cache.contains(host)) {
         cache(host)
       } else {
         val elasticClient = new ElasticClient(host)

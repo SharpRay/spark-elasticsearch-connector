@@ -6,7 +6,8 @@ case class ElasticOptions(host: String,
                           index: String,
                           `type`: String,
                           poolMaxConnectionsPerRoute: Int,
-                          poolMaxConnections: Int)
+                          poolMaxConnections: Int,
+                          cacheIndexMappings: Boolean)
 
 case class ElasticRelationInfo(name: String,
                                indexInfo: ElasticIndex,
