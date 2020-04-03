@@ -27,6 +27,7 @@ object ElasticColumn {
       ElasticDataType.Double |
       ElasticDataType.Boolean |
       ElasticDataType.Nested) => ElasticColumn(name, property, t)
+    case ElasticDataType.NotKnown => ElasticColumn(name, property)
   }
 }
 
