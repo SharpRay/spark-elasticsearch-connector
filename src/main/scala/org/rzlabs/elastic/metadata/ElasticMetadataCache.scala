@@ -58,10 +58,6 @@ object ElasticMetadataCache extends ElasticMetadataCache with MyLogging with Ela
         val elasticClient = new ElasticClient(host)
         val elasticIndex: ElasticIndex = elasticClient.mappings(index, `type`,
           options.skipUnknownTypeFields)
-        elasticIndex.columns.foreach(c => {
-          println(c._1)
-          println(c._2)
-        })
         clusterInfo.indexes(index) = elasticIndex
         logInfo(s"Elasticsearch index info for ${index} is loaded.")
         elasticIndex

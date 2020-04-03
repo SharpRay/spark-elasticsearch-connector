@@ -201,7 +201,7 @@ class ElasticClient(val host: String,
   def mappings(index: String, `type`: String, skipUnknownTypeField: Boolean) = {
     val url = s"http://$host:$port/${index}/_mappings"
     val resp: String = get(url)
-    //logWarning(s"The json response of '_mappings' query: \n$resp")
+    logDebug(s"The json response of '_mappings' query: \n$resp")
     val mappingsResp: Map[String, IndexMappings] = jsonMapper.readValue(resp,
       new TypeReference[Map[String, IndexMappings]] {})
 
