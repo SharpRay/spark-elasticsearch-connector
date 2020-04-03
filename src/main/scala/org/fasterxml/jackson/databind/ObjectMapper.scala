@@ -13,6 +13,7 @@ object ObjectMapper {
     om.registerModule(new JodaModule)
     om.disable(SerializationFeature.FAIL_ON_EMPTY_BEANS)
     om.disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+    om.disable(DeserializationFeature.FAIL_ON_INVALID_SUBTYPE)
     om
   }
 
@@ -21,6 +22,7 @@ object ObjectMapper {
     om.registerModule(DefaultScalaModule)
     om.disable(SerializationFeature.FAIL_ON_EMPTY_BEANS)
     om.disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+    om.disable(DeserializationFeature.FAIL_ON_INVALID_SUBTYPE)
     om
   }
 }
