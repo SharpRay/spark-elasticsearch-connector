@@ -13,7 +13,6 @@ object ObjectMapper {
     om.registerModule(new JodaModule)
     om.disable(SerializationFeature.FAIL_ON_EMPTY_BEANS)
     om.disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
-    om.configure(MapperFeature.USE_BASE_TYPE_AS_DEFAULT_IMPL, true)
     om
   }
 
@@ -21,6 +20,7 @@ object ObjectMapper {
     val om = new ObjectMapper(new SmileFactory())
     om.registerModule(DefaultScalaModule)
     om.disable(SerializationFeature.FAIL_ON_EMPTY_BEANS)
+    om.disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
     om
   }
 }

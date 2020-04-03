@@ -1,7 +1,6 @@
 val sparkVersion = "2.4.5"
 val jodaVersion = "2.10.5"
-val jacksonVersion = "2.6.5"
-val jacksonModuleScalaVersion = "2.10.3"
+val jacksonVersion = "2.10.3"
 val apacheHttpVersion = "4.5.11"
 
 val myDependencies = Seq(
@@ -11,7 +10,7 @@ val myDependencies = Seq(
   "com.fasterxml.jackson.core" % "jackson-core" % jacksonVersion,
   "com.fasterxml.jackson.core" % "jackson-annotations" % jacksonVersion,
   "com.fasterxml.jackson.core" % "jackson-databind" % jacksonVersion,
-  "com.fasterxml.jackson.module" %% "jackson-module-scala" % jacksonModuleScalaVersion,
+  "com.fasterxml.jackson.module" %% "jackson-module-scala" % jacksonVersion,
   "com.fasterxml.jackson.dataformat" % "jackson-dataformat-smile" % jacksonVersion,
   "com.fasterxml.jackson.datatype" % "jackson-datatype-joda" % jacksonVersion,
   "com.fasterxml.jackson.jaxrs" % "jackson-jaxrs-smile-provider" % jacksonVersion,
