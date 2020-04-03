@@ -6,7 +6,7 @@ import org.rzlabs.elastic.ElasticDataType
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME,
   include = JsonTypeInfo.As.EXISTING_PROPERTY,
   property = "type",
-  defaultImpl = classOf[NotKnownProperty])
+  defaultImpl = classOf[UnknownProperty])
 @JsonSubTypes(Array(
   new JsonSubTypes.Type(value = classOf[TextProperty], name = "text"),
   new JsonSubTypes.Type(value = classOf[KeywordProperty], name = "keyword"),
@@ -24,7 +24,7 @@ sealed trait IndexProperty extends Serializable {
   def dataType: ElasticDataType.Value
 }
 
-case class NotKnownProperty() extends IndexProperty {
+case class UnknownProperty() extends IndexProperty {
   override def dataType = ElasticDataType.Unknown
 }
 

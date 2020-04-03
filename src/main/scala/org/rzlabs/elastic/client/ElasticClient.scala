@@ -217,6 +217,8 @@ class ElasticClient(val host: String,
       }
       ElasticIndex(index, `type`,
         indexMappings.mappings.get(`type`).get.properties.map(prop => {
+          println("name: " + prop._1)
+          println("property: " + prop._2)
           (prop._1, ElasticColumn(prop._1, prop._2))
         }).filter(_._2.property.dataType != ElasticDataType.Unknown)
       )
