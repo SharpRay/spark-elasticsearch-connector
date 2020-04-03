@@ -27,12 +27,12 @@ object ElasticColumn {
       ElasticDataType.Double |
       ElasticDataType.Boolean |
       ElasticDataType.Nested) => ElasticColumn(name, property, t)
-    case ElasticDataType.NotKnown => ElasticColumn(name, property)
+    case ElasticDataType.Unknown => ElasticColumn(name, property)
   }
 }
 
 object ElasticDataType extends Enumeration {
-  val NotKnown = Value("NOTKNOWN")
+  val Unknown = Value("UNKNOWN")
   val Text = Value("TEXT")
   val Keyword = Value("KEYWORD")
   val Long = Value("LONG")

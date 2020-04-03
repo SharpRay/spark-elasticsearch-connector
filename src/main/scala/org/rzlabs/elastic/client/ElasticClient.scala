@@ -12,7 +12,7 @@ import org.apache.http.impl.client.{CloseableHttpClient, HttpClients}
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager
 import org.apache.http.util.EntityUtils
 import org.apache.spark.sql.MyLogging
-import org.rzlabs.elastic.{ElasticColumn, ElasticIndex, ElasticIndexException}
+import org.rzlabs.elastic.{ElasticColumn, ElasticDataType, ElasticIndex, ElasticIndexException}
 import org.rzlabs.elastic.metadata.ElasticOptions
 import org.fasterxml.jackson.databind.ObjectMapper._
 
@@ -218,7 +218,7 @@ class ElasticClient(val host: String,
       ElasticIndex(index, `type`,
         indexMappings.mappings.get(`type`).get.properties.map(prop => {
           (prop._1, ElasticColumn(prop._1, prop._2))
-        })
+        }).filter(_._2.property.dataType != ElasticDataType.Unknown)
       )
     }
   }

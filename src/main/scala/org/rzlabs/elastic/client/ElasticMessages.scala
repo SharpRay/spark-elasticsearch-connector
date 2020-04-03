@@ -25,7 +25,7 @@ sealed trait IndexProperty extends Serializable {
 }
 
 case class NotKnownProperty() extends IndexProperty {
-  override def dataType = ElasticDataType.NotKnown
+  override def dataType = ElasticDataType.Unknown
 }
 
 case class TextProperty(fields: Map[String, IndexProperty],
