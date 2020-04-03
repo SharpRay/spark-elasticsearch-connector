@@ -30,12 +30,16 @@ class DefaultSource extends RelationProvider with MyLogging {
     val cacheIndexMappings: Boolean = parameters.getOrElse(CACHE_INDEX_MAPPINGS,
       DEFAULT_CACHE_INDEX_MAPPINGS).toBoolean
 
+    val skipUnknownTypeFields: Boolean = parameters.getOrElse(SKIP_UNKNOWN_TYPE_FIELDS,
+      DEFAULT_SKIP_UNKNOWN_TYPE_FIELDS).toBoolean
+
     val elasticOptions = ElasticOptions(host,
       index,
       `type`,
       poolMaxConnectionsPerRoute,
       poolMaxConnections,
-      cacheIndexMappings)
+      cacheIndexMappings,
+      skipUnknownTypeFields)
 
     val elasticRelationInfo = ElasticMetadataCache.elasticRelation(elasticOptions)
 
@@ -64,5 +68,8 @@ object DefaultSource {
   val DEFAULT_CONN_POOL_MAX_CONNECTIONS = "100"
 
   val CACHE_INDEX_MAPPINGS = "cacheIndexMappings"
-  val DEFAULT_CACHE_INDEX_MAPPINGS = "true"
+  val DEFAULT_CACHE_INDEX_MAPPINGS = "false"
+
+  val SKIP_UNKNOWN_TYPE_FIELDS = "skipUnknownTypeFields"
+  val DEFAULT_SKIP_UNKNOWN_TYPE_FIELDS = "false"
 }

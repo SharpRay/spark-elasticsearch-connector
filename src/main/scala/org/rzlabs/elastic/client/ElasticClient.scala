@@ -198,31 +198,31 @@ class ElasticClient(val host: String,
   }
 
   @throws[ElasticIndexException]
-  def mappings(index: String, `type`: String = null) = {
+  def mappings(index: String, `type`: String, skipUnknownTypeField: Boolean) = {
     val url = s"http://$host:$port/${index}/_mappings"
     val resp: String = get(url)
     //logWarning(s"The json response of '_mappings' query: \n$resp")
     val mappingsResp: Map[String, IndexMappings] = jsonMapper.readValue(resp,
       new TypeReference[Map[String, IndexMappings]] {})
-    if (`type` == null) {
-      ElasticIndex(index, mappingsResp.get(index).get.mappings.head._1,
-        mappingsResp.get(index).get.mappings.head._2.properties.map(prop => {
-          (prop._1, ElasticColumn(prop._1, prop._2))
-        })
-      )
+
+    val indexMappings: IndexMappings = mappingsResp.get(index).get
+    val theType = if (`type` == null) {
+      indexMappings.mappings.head._1
     } else {
-      val indexMappings: IndexMappings = mappingsResp.get(index).get
       if (!indexMappings.mappings.contains(`type`)) {
         throw new ElasticIndexException(s"The type '${`type`}' do not exist.")
       }
-      ElasticIndex(index, `type`,
-        indexMappings.mappings.get(`type`).get.properties.map(prop => {
-          println("name: " + prop._1)
-          println("property: " + prop._2)
-          (prop._1, ElasticColumn(prop._1, prop._2))
-        }).filter(_._2.property.dataType != ElasticDataType.Unknown)
-      )
+      `type`
     }
+    ElasticIndex(index, theType,
+      indexMappings.mappings.get(theType).get.properties.map(prop => {
+        if (!skipUnknownTypeField && prop._2.dataType == ElasticDataType.Unknown) {
+          throw new ElasticIndexException(s"'${prop._1}' field mapping without type definition.")
+        } else {
+          (prop._1, ElasticColumn(prop._1, prop._2))
+        }
+      }).filter(_._2.property.dataType != ElasticDataType.Unknown)
+    )
   }
 }
 
