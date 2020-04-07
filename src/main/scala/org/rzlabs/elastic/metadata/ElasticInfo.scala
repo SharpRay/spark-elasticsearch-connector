@@ -8,7 +8,9 @@ case class ElasticOptions(host: String,
                           poolMaxConnectionsPerRoute: Int,
                           poolMaxConnections: Int,
                           cacheIndexMappings: Boolean,
-                          skipUnknownTypeFields: Boolean)
+                          skipUnknownTypeFields: Boolean,
+                          debugTransformations: Boolean,
+                          timeZoneId: String)
 
 case class ElasticRelationInfo(name: String,
                                indexInfo: ElasticIndex,

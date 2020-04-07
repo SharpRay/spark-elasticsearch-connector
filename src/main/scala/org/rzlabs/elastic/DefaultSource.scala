@@ -34,13 +34,20 @@ class DefaultSource extends RelationProvider with MyLogging {
     val skipUnknownTypeFields: Boolean = parameters.getOrElse(SKIP_UNKNOWN_TYPE_FIELDS,
       DEFAULT_SKIP_UNKNOWN_TYPE_FIELDS).toBoolean
 
+    val debugTransformations: Boolean = parameters.getOrElse(DEBUG_TRANSFORMATIONS,
+      DEFAULT_DEBUG_TRANSFORMATIONS).toBoolean
+
+    val timeZoneId: String = parameters.getOrElse(TIME_ZONE_ID, DEFAULT_TIME_ZONE_ID)
+
     val elasticOptions = ElasticOptions(host,
       index,
       `type`,
       poolMaxConnectionsPerRoute,
       poolMaxConnections,
       cacheIndexMappings,
-      skipUnknownTypeFields)
+      skipUnknownTypeFields,
+      debugTransformations,
+      timeZoneId)
 
     val elasticRelationInfo = ElasticMetadataCache.elasticRelation(elasticOptions)
 
@@ -110,4 +117,10 @@ object DefaultSource {
 
   val SKIP_UNKNOWN_TYPE_FIELDS = "skipUnknownTypeFields"
   val DEFAULT_SKIP_UNKNOWN_TYPE_FIELDS = "false"
+
+  val DEBUG_TRANSFORMATIONS = "debuTransformations"
+  val DEFAULT_DEBUG_TRANSFORMATIONS = "false"
+
+  val TIME_ZONE_ID = "timeZoneId"
+  val DEFAULT_TIME_ZONE_ID = "UTC"
 }
