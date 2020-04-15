@@ -7,6 +7,7 @@ import org.rzlabs.elastic.metadata.{ElasticRelationColumn, ElasticRelationInfo}
 import scala.collection.mutable.{Map => MMap}
 
 case class ElasticQueryBuilder(relationInfo: ElasticRelationInfo,
+                               queryIntervals: QueryIntervals,
                                referenceElasticColumns: MMap[String, ElasticRelationColumn] = MMap(),
                                projectionAliasMap: Map[String, String] = Map(),
                                curId: AtomicLong = new AtomicLong(-1),
@@ -32,6 +33,18 @@ case class ElasticQueryBuilder(relationInfo: ElasticRelationInfo,
    * @return
    */
   def nextAlias: String = s"alias${curId.getAndDecrement()}"
+
+  def queryInterval(ic: IntervalCondition): Option[ElasticQueryBuilder] = ic.`type` match {
+    case IntervalConditionType.LT =>
+      queryIntervals.ltCond(ic.dt).map(qi => this.copy(queryIntervals = qi))
+    case IntervalConditionType.LTE =>
+      queryIntervals.lteCond(ic.dt).map(qi => this.copy(queryIntervals = qi))
+    case IntervalConditionType.GT =>
+      queryIntervals.gtCond(ic.dt).map(qi => this.copy(queryIntervals = qi))
+    case IntervalConditionType.GTE =>
+      queryIntervals.gteCond(ic.dt).map(qi => this.copy(queryIntervals = qi))
+
+  }
 }
 
 object ElasticQueryBuilder {

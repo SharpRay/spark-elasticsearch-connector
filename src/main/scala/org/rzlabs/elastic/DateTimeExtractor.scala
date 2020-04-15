@@ -1,8 +1,9 @@
 package org.rzlabs.elastic
 
 import org.apache.spark.sql.catalyst.expressions._
+import org.apache.spark.sql.catalyst.util.DateTimeUtils
 import org.apache.spark.sql.types._
-import org.joda.time.DateTime
+import org.joda.time.{DateTime, DateTimeZone}
 import org.rzlabs.elastic.metadata.ElasticRelationColumn
 
 case class DateTimeGroupingElem(outputName: String,
@@ -85,6 +86,42 @@ class SparkNativeTimeElementExtractor(implicit val eqb: ElasticQueryBuilder) {
       // e.g., "hour(cast(time as date))"
       Some(DateTimeGroupingElem(dtGrp.outputName, dtGrp.elasticColumn,
         HOUR_FORMAT, dtGrp.timeZone, dtGrp.pushedExpression))
+    case Minute(self(dtGrp), _) =>
+      // e.g., "minute(cast(time as date))"
+      Some(DateTimeGroupingElem(dtGrp.outputName, dtGrp.elasticColumn,
+        MINUTE_FORMAT, dtGrp.timeZone, dtGrp.pushedExpression))
+    case Second(self(dtGrp), _) =>
+      // e.g., "second(cast(time as date))"
+      Some(DateTimeGroupingElem(dtGrp.outputName, dtGrp.elasticColumn,
+        SECOND_FORMAT, dtGrp.timeZone, dtGrp.pushedExpression))
+    case UnixTimestamp(self(dtGrp), Literal(inFmt, StringType), _) =>
+      // e.g., "unix_timestmap(cast(time as date), 'YYYY-MM-dd HH:mm:ss')"
+      Some(DateTimeGroupingElem(dtGrp.outputName, dtGrp.elasticColumn,
+        TIMESTAMP_FORMAT, dtGrp.timeZone, dtGrp.pushedExpression,
+        Some(inFmt.toString)))
+    case FromUnixTime(self(dtGrp), Literal(outFmt, StringType), _) =>
+      Some(DateTimeGroupingElem(dtGrp.outputName, dtGrp.elasticColumn,
+        outFmt.toString, dtGrp.timeZone, dtGrp.pushedExpression))
+    case FromUnixTime(c @ ElasticColumnExtractor(ec), Literal(outFmt, StringType), _) =>
+      Some(DateTimeGroupingElem(eqb.nextAlias, ec, outFmt.toString,
+        Some(eqb.relationInfo.options.timeZoneId), c))
+    case FromUTCTimestamp(self(dtGrp), Literal(tz, StringType)) =>
+      // e.g., "from_utc_timestamp(cast(time as timestamp), 'GMT')"
+      Some(DateTimeGroupingElem(dtGrp.outputName, dtGrp.elasticColumn,
+        TIMESTAMP_FORMAT, Some(tz.toString), dtGrp.pushedExpression))
+    case FromUTCTimestamp(c @ ElasticColumnExtractor(ec), Literal(tz, StringType)) =>
+      // e.g., "from_utc_timestamp(time, 'GMT')"
+      Some(DateTimeGroupingElem(eqb.nextAlias, ec,
+        TIMESTAMP_FORMAT, Some(tz.toString), c))
+    case ToUTCTimestamp(self(dtGrp), _) =>
+      // e.g., "to_utc_timestamp(cast(time as timestamp), 'GMT')"
+      Some(DateTimeGroupingElem(dtGrp.outputName, dtGrp.elasticColumn,
+        TIMESTAMP_FORMAT, None, dtGrp.pushedExpression))
+    case ToUTCTimestamp(c @ ElasticColumnExtractor(ec), _) =>
+      // e.g., "to_utc_timestamp(time, 'GMT')"
+      Some(DateTimeGroupingElem(eqb.nextAlias, ec,
+        TIMESTAMP_FORMAT, None, c))
+    case _ => None
   }
 }
 
@@ -106,19 +143,85 @@ object SparkNativeTimeElementExtractor {
 }
 
 object IntervalConditionType extends Enumeration {
-  val GT = Value
-  val GTE = Value
-  val LT = Value
-  val LTE = Value
+  val GT = Value("gt")
+  val GTE = Value("gte")
+  val LT = Value("lt")
+  val LTE = Value("lte")
+  val EQ = Value("eq")
 }
 
-case class IntervalCondition(`type`: IntervalConditionType.Value, dt: DateTime)
+case class IntervalCondition(`type`: IntervalConditionType.Value,
+                             dt: DateTime,
+                             dtGrp: DateTimeGroupingElem)
 
 class SparkIntervalConditionExtractor(eqb: ElasticQueryBuilder) {
 
   import SparkNativeTimeElementExtractor._
 
-  def unapply(e: Expression): Option[ElasticQueryBuilder] = e match {
-    case LessThan(timeExtractor)
+  val timeExtractor = new SparkNativeTimeElementExtractor()(eqb)
+
+  private def literalToDateTime(value: Any, dataType: DataType): DateTime = dataType match {
+    case TimestampType =>
+      // Timetamp Literal's value accurate to micro second
+      new DateTime(value.toString.toLong / 1000,
+        DateTimeZone.forID(eqb.relationInfo.options.timeZoneId))
+    case DateType =>
+      new DateTime(DateTimeUtils.toJavaDate(value.toString.toInt),
+        DateTimeZone.forID(eqb.relationInfo.options.timeZoneId))
+    case StringType =>
+      new DateTime(value.toString,
+        DateTimeZone.forID(eqb.relationInfo.options.timeZoneId))
+  }
+
+  private object DateTimeLiteralType {
+    def unapply(dt: DataType): Option[DataType] = dt match {
+      case StringType | DateType | TimestampType => Some(dt)
+      case _ => None
+    }
+  }
+
+  def unapply(e: Expression): Option[IntervalCondition] = e match {
+    case LessThan(timeExtractor(dtGrp), Literal(value, DateTimeLiteralType(dt)))
+      if dtGrp.formatToApply == TIMESTAMP_FORMAT ||
+        dtGrp.formatToApply == TIMESTAMP_DATEZERO_FORMAT =>
+      Some(IntervalCondition(IntervalConditionType.LT, literalToDateTime(value, dt), dtGrp))
+    case LessThan(Literal(value, DateTimeLiteralType(dt)), timeExtractor(dtGrp))
+      if dtGrp.formatToApply == TIMESTAMP_FORMAT ||
+        dtGrp.formatToApply == TIMESTAMP_DATEZERO_FORMAT =>
+      Some(IntervalCondition(IntervalConditionType.GT, literalToDateTime(value, dt), dtGrp))
+    case LessThanOrEqual(timeExtractor(dtGrp), Literal(value, DateTimeLiteralType(dt)))
+      if dtGrp.formatToApply == TIMESTAMP_FORMAT ||
+          dtGrp.formatToApply == TIMESTAMP_DATEZERO_FORMAT =>
+      Some(IntervalCondition(IntervalConditionType.LTE, literalToDateTime(value, dt), dtGrp))
+    case LessThanOrEqual(Literal(value, DateTimeLiteralType(dt)), timeExtractor(dtGrp))
+      if dtGrp.formatToApply == TIMESTAMP_FORMAT ||
+          dtGrp.formatToApply == TIMESTAMP_DATEZERO_FORMAT =>
+      Some(IntervalCondition(IntervalConditionType.GTE, literalToDateTime(value, dt), dtGrp))
+    case GreaterThan(timeExtractor(dtGrp), Literal(value, DateTimeLiteralType(dt)))
+      if dtGrp.formatToApply == TIMESTAMP_FORMAT ||
+          dtGrp.formatToApply == TIMESTAMP_DATEZERO_FORMAT =>
+      Some(IntervalCondition(IntervalConditionType.GT, literalToDateTime(value, dt), dtGrp))
+    case GreaterThan(Literal(value, DateTimeLiteralType(dt)), timeExtractor(dtGrp))
+      if dtGrp.formatToApply == TIMESTAMP_FORMAT ||
+          dtGrp.formatToApply == TIMESTAMP_DATEZERO_FORMAT =>
+      Some(IntervalCondition(IntervalConditionType.LT, literalToDateTime(value, dt), dtGrp))
+    case GreaterThanOrEqual(timeExtractor(dtGrp), Literal(value, DateTimeLiteralType(dt)))
+      if dtGrp.formatToApply == TIMESTAMP_FORMAT ||
+          dtGrp.formatToApply == TIMESTAMP_DATEZERO_FORMAT =>
+      Some(IntervalCondition(IntervalConditionType.GTE, literalToDateTime(value, dt), dtGrp))
+    case GreaterThanOrEqual(Literal(value, DateTimeLiteralType(dt)), timeExtractor(dtGrp))
+      if dtGrp.formatToApply == TIMESTAMP_FORMAT ||
+          dtGrp.formatToApply == TIMESTAMP_DATEZERO_FORMAT =>
+      Some(IntervalCondition(IntervalConditionType.LTE, literalToDateTime(value, dt), dtGrp))
+    case EqualTo(timeExtractor(dtGrp), Literal(value, DateTimeLiteralType(dt)))
+      if dtGrp.formatToApply == TIMESTAMP_FORMAT ||
+          dtGrp.formatToApply == TIMESTAMP_DATEZERO_FORMAT =>
+      Some(IntervalCondition(IntervalConditionType.EQ, literalToDateTime(value, dt), dtGrp))
+    case EqualTo(Literal(value, DateTimeLiteralType(dt)), timeExtractor(dtGrp))
+      if dtGrp.formatToApply == TIMESTAMP_FORMAT ||
+        dtGrp.formatToApply == TIMESTAMP_DATEZERO_FORMAT =>
+      Some(IntervalCondition(IntervalConditionType.EQ, literalToDateTime(value, dt), dtGrp))
+    case _ => None
+
   }
 }

@@ -10,7 +10,7 @@ case class ElasticIndex(name: String,
 case class ElasticColumn(name: String,
                          property: IndexProperty,
                          dataType: ElasticDataType.Value,
-                         keywordFields: Seq[String] = null)
+                         keywordFields: Option[Seq[String]] = None)
 
 object ElasticColumn {
 
@@ -59,6 +59,7 @@ object ElasticDataType extends Enumeration {
     case Date => DateType
     case Boolean => BooleanType
     case Nested => sparkStructType(property)
+    case Unknown => StringType
   }
 
   private def sparkStructType(property: NestedProperty): StructType = {

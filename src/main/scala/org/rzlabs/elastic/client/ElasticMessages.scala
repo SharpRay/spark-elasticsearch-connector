@@ -33,11 +33,11 @@ case class TextProperty(fields: Map[String, IndexProperty],
 
   override def dataType = ElasticDataType.Text
 
-  def keywordFields(): Seq[String] = {
+  def keywordFields(): Option[Seq[String]] = {
     if (fields == null) {
-      Seq[String]()
+      None
     } else {
-      fields.filter(field => field._2.isInstanceOf[KeywordProperty]).keys.toSeq
+      Some(fields.filter(field => field._2.isInstanceOf[KeywordProperty]).keys.toSeq)
     }
   }
 }

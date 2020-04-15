@@ -4,7 +4,7 @@ import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.planning.PhysicalOperation
 import org.apache.spark.sql.execution.datasources.LogicalRelation
 import org.apache.spark.sql.util.ExprUtil
-import org.rzlabs.elastic.{ElasticQueryBuilder, SparkIntervalConditionExtractor}
+import org.rzlabs.elastic._
 import org.rzlabs.elasticsearch.ElasticRelation
 
 trait ProjectFilterTransform {
@@ -26,7 +26,10 @@ trait ProjectFilterTransform {
       // For each filter generates a new ElasticQueryBuilder
       var oeqb = filters.foldLeft(eqb1) { (loeqb, filter) =>
         loeqb.flatMap { leqb =>
-
+//          intervalFilterExpression(leqb, ice, filter).orElse {
+//
+//          }
+          columnFilterExpression(leqb, ice, filter)
         }
 
       }
@@ -35,7 +38,16 @@ trait ProjectFilterTransform {
 
   def intervalFilterExpression(eqb: ElasticQueryBuilder, ice: SparkIntervalConditionExtractor,
                                filter: Expression): Option[ElasticQueryBuilder] = filter match {
-    case ice(ic) =>
+    case ice(ic) => eqb.queryInterval(ic)
+    case _ => None
+  }
+
+  def columnFilterExpression(eqb: ElasticQueryBuilder, ice: SparkIntervalConditionExtractor,
+                             filter: Expression): Option[FilterSpec] = {
+
+    (eqb, filter) match {
+      case ValidElasticNativeComparison(filterSpec) => Some(filterSpec)
+    }
   }
 
   def projectExpression(eqb: ElasticQueryBuilder, projectExpr: Expression,
@@ -68,5 +80,30 @@ trait ProjectFilterTransform {
       val eqb: Option[ElasticQueryBuilder] = Some(ElasticQueryBuilder(info))
       val (newFilters, eqb1) = ExprUtil.simplifyConjPred(eqb.get, filters)
 
+  }
+
+  object ValidElasticNativeComparison {
+
+
+    def unapply(t: (ElasticQueryBuilder, Expression)): Option[FilterSpec] = {
+      val eqb = t._1
+      val filter = t._2
+      val ice = new SparkIntervalConditionExtractor(eqb)
+      filter match {
+        case ice(ic) => Some(RangeFilterSpec(ic))
+        case EqualTo(AttributeReference(nm, dt, _, _), Literal(value, _)) =>
+          for (ec <- eqb.elasticCoumn(nm)
+               if ElasticDataType.sparkDataType(ec.dataType) == dt)
+            yield TermFilterSpec(ec, ec.column, value);
+        case EqualTo(Literal(value, _), AttributeReference(nm, dt, _, _)) =>
+          for (ec <- eqb.elasticCoumn(nm)
+               if ElasticDataType.sparkDataType(ec.dataType) == dt)
+            yield TermFilterSpec(ec, ec.column, value);
+        case EqualTo(AttributeReference(nm1, _, _, _), AttributeReference(nm2, _, _, _)) =>
+          for (ec1 <- eqb.elasticCoumn(nm1);
+               ec2 <- eqb.elasticCoumn(nm2))
+            yield ColumnComparisonFilterSpec(ec1, ec2)
+      }
+    }
   }
 }
