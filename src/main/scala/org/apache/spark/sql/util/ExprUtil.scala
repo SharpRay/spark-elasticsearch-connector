@@ -103,6 +103,14 @@ object ExprUtil {
     case _ => oe
   }
 
+  def and(exprs: Seq[Expression]): Option[Expression] = exprs.size match {
+    case 0 => None
+    case 1 => exprs.headOption
+    case _ => Some(exprs.foldLeft[Expression](null) { (le, e) =>
+      if (le == null) e else And(le, e)
+    })
+  }
+
   private[this] object SimplifyCast {
     def unapply(e: Expression): Option[Expression] = e match {
       case Cast(ie @ Cast(_, _, _), dt, _) =>

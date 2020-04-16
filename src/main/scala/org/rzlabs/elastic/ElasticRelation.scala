@@ -1,12 +1,15 @@
 package org.rzlabs.elasticsearch
 
 import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.catalyst.expressions.ExprId
 import org.apache.spark.sql.{Row, SQLContext}
 import org.apache.spark.sql.sources.{BaseRelation, TableScan}
-import org.apache.spark.sql.types.{StructField, StructType}
+import org.apache.spark.sql.types.{DataType, StructField, StructType}
 import org.rzlabs.elastic.ElasticDataType
 import org.rzlabs.elastic.client.NestedProperty
 import org.rzlabs.elastic.metadata.ElasticRelationInfo
+
+case class ElasticAttribute(exprId: ExprId, name: String, dataType: DataType, tf: String = null)
 
 case class ElasticRelation(val info: ElasticRelationInfo)
                           (@transient val sqlContext: SQLContext)

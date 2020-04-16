@@ -12,7 +12,8 @@ import org.apache.http.impl.client.{CloseableHttpClient, HttpClients}
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager
 import org.apache.http.util.EntityUtils
 import org.apache.spark.sql.MyLogging
-import org.rzlabs.elastic.{ElasticColumn, ElasticDataType, ElasticIndex, ElasticIndexException}
+import org.apache.spark.sql.sources.elastic.CloseableIterator
+import org.rzlabs.elastic._
 import org.rzlabs.elastic.metadata.ElasticOptions
 import org.fasterxml.jackson.databind.ObjectMapper._
 
@@ -179,10 +180,70 @@ class ElasticClient(val host: String,
     })
   }
 
+  @throws[ElasticIndexException]
+  def performQuery(url: String,
+                   reqType: String => HttpRequestBase,
+                   qrySpec: QuerySpec,
+                   payload: ObjectNode,
+                   reqHeaders: Map[String, String]): CloseableIterator[ResultRow] = {
+
+    var resp: CloseableHttpResponse = null
+
+    val enterTime = System.currentTimeMillis()
+    var beforeExecTime = System.currentTimeMillis()
+    var afterExecTime = System.currentTimeMillis()
+
+    val iter: Try[CloseableIterator[ResultRow]] = for {
+      r <- Try {
+        val req: CloseableHttpClient = httpClient
+        val request: HttpRequestBase = reqType(url)
+        if (payload != null && request.isInstanceOf[HttpEntityEnclosingRequestBase]) {
+          // HttpPost
+          val input: HttpEntity = new StringEntity(jsonMapper.writeValueAsString(payload),
+            ContentType.APPLICATION_JSON)
+          request.asInstanceOf[HttpEntityEnclosingRequestBase].setEntity(input)
+        }
+        addHeaders(request, reqHeaders)
+        beforeExecTime = System.currentTimeMillis()
+        resp = req.execute(request)
+        afterExecTime = System.currentTimeMillis()
+        resp
+      }
+      iter <- Try {
+        val status = r.getStatusLine.getStatusCode
+        if (status >= 200 && status < 300) {
+          qrySpec(r.getEntity.getContent, this, release(r))
+        } else {
+          throw new ElasticIndexException(s"Unexpected response status: ${r.getStatusLine} " +
+            s"on $url for query: " +
+            s"\n ${Utils.toPrettyJson(Right(payload))}")
+        }
+      }
+    } yield iter
+
+    val afterIterBuildTime = System.currentTimeMillis()
+    log.debug(s"request $url: beforeExecTime = ${beforeExecTime - enterTime}, " +
+      s"execTime = ${afterExecTime - beforeExecTime}, " +
+      s"iterBuildTime = ${afterIterBuildTime - afterExecTime}")
+    iter.getOrElse {
+      release(resp)
+      iter.failed.get match {
+        case ie: ElasticIndexException => throw ie
+        case e => throw new ElasticIndexException("Failed in communication with Elasticsearch: ", e)
+      }
+    }
+  }
+
   def post(url: String,
                      payload: ObjectNode,
                      reqHeaders: Map[String, String] = null): String = {
     perform(url, postRequest _, payload, reqHeaders);
+  }
+
+  def postQuery(url: String, qrySpec: QuerySpec,
+                payload: ObjectNode,
+                reqHeaders: Map[String, String] = null): CloseableIterator[ResultRow] = {
+    performQuery(url, postRequest _, qrySpec, payload, reqHeaders);
   }
 
   def get(url: String,
@@ -223,6 +284,24 @@ class ElasticClient(val host: String,
         }
       }).filter(_._2.property.dataType != ElasticDataType.Unknown)
     )
+  }
+
+  def executeQuery(qrySpec: QuerySpec): List[ResultRow] = {
+    val payload: ObjectNode = jsonMapper.valueToTree(qrySpec)
+    val r = post(url(qrySpec), payload)
+    jsonMapper.readValue(r, new TypeReference[List[ResultRow]] {})
+  }
+
+  @throws[ElasticIndexException]
+  def executeQueryAsStream(qrySpec: QuerySpec): CloseableIterator[ResultRow] = {
+    val payload: ObjectNode = jsonMapper.valueToTree(qrySpec)
+    postQuery(url(qrySpec), qrySpec, payload)
+  }
+
+  private def url(qrySpec: QuerySpec) = {
+    val index = qrySpec.index
+    val `type` = qrySpec.`type`.getOrElse("")
+    s"http://${host}:${port}/${index}/${`type`}/_search"
   }
 }
 

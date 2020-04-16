@@ -93,3 +93,7 @@ case class ClusterStatus(@JsonProperty("cluster_name") clusterName: String,
 case class IndexMappings(mappings: Map[String, IndexProperties])
 
 case class IndexProperties(properties: Map[String, IndexProperty])
+
+sealed trait ResultRow {
+  def event: Map[String, Any]
+}

@@ -1,5 +1,6 @@
 package org.apache.spark.sql.rzlabs
 
+import org.apache.spark.sql.sources.elastic.ElasticPlanner
 import org.apache.spark.sql.{SQLContext, Strategy}
 import org.rzlabs.elastic.metadata.ElasticOptions
 

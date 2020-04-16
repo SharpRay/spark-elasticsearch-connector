@@ -26,14 +26,17 @@ trait ProjectFilterTransform {
       // For each filter generates a new ElasticQueryBuilder
       var oeqb = filters.foldLeft(eqb1) { (loeqb, filter) =>
         loeqb.flatMap { leqb =>
-//          intervalFilterExpression(leqb, ice, filter).orElse {
-//
-//          }
-          columnFilterExpression(leqb, ice, filter)
+          columnFilterExpression(leqb, ice, filter).map(spec =>
+            leqb.filterSpecification(spec))
         }
-
       }
-    }
+      oeqb = oeqb.map { eqb2 =>
+        eqb2.copy(origProjectList = eqb2.origProjectList.map(_ ++ projectList).orElse(Some(projectList)))
+          .copy(origFilter = eqb2.origFilter.flatMap(f =>
+            ExprUtil.and(filters :+ f)).orElse(ExprUtil.and(filters)))
+      }
+      oeqb.map(Seq(_)).getOrElse(Seq())
+    } else Seq()
   }
 
   def intervalFilterExpression(eqb: ElasticQueryBuilder, ice: SparkIntervalConditionExtractor,
@@ -47,6 +50,39 @@ trait ProjectFilterTransform {
 
     (eqb, filter) match {
       case ValidElasticNativeComparison(filterSpec) => Some(filterSpec)
+      case (eqb, filter) => filter match {
+        case Or(e1, e2) =>
+          Utils.sequence(
+            List(columnFilterExpression(eqb, ice, e1),
+              columnFilterExpression(eqb, ice, e2))).map(specs =>
+            BoolExpressionFilterSpec(ConjExpressionFilterSpec(should = specs)))
+        case And(e1, e2) =>
+          Utils.sequence(
+            List(columnFilterExpression(eqb, ice, e1),
+              columnFilterExpression(eqb, ice, e2))).map(specs =>
+            BoolExpressionFilterSpec(ConjExpressionFilterSpec(must = specs)))
+        case In(AttributeReference(nm, _, _, _), vals: Seq[Expression]) =>
+          for (ec <- eqb.elasticCoumn(nm)
+               if vals.forall(_.isInstanceOf[Literal]))
+            yield new TermsFilterSpec(ec.column, vals.map(_.asInstanceOf[Literal].value).toList)
+        case InSet(AttributeReference(nm, _, _, _), vals: Set[Any]) =>
+          for (ec <- eqb.elasticCoumn(nm))
+            yield new TermsFilterSpec(ec.column, vals.toList)
+        case IsNotNull(AttributeReference(nm, _, _, _)) =>
+          for (ec <- eqb.elasticCoumn(nm))
+            yield new ExistsFilterSpec(ec.column)
+        case IsNull(AttributeReference(nm, _, _, _)) =>
+          for (ec <- eqb.elasticCoumn(nm))
+            yield BoolExpressionFilterSpec(
+              ConjExpressionFilterSpec(mustNot = List(new ExistsFilterSpec(ec.column))))
+        case Not(e) =>
+          for (spec <- columnFilterExpression(eqb, ice, e))
+            yield BoolExpressionFilterSpec(ConjExpressionFilterSpec(mustNot = List(spec)))
+        // TODO: What is NULL SCAN ???
+        case Literal(null, _) => None
+        // TODO: GroovyGenerator
+        case _ => None
+      }
     }
   }
 
@@ -72,16 +108,6 @@ trait ProjectFilterTransform {
     }
   }
 
-  val elasticRelationTransform: ElasticTransform = {
-    case (_, PhysicalOperation(projectList, filters,
-      l @ LogicalRelation(d @ ElasticRelation(info), _, _, _))) =>
-      // This is the initial ElasticQueryBuilder which all transformations
-      // are based on.
-      val eqb: Option[ElasticQueryBuilder] = Some(ElasticQueryBuilder(info))
-      val (newFilters, eqb1) = ExprUtil.simplifyConjPred(eqb.get, filters)
-
-  }
-
   object ValidElasticNativeComparison {
 
 
@@ -103,7 +129,52 @@ trait ProjectFilterTransform {
           for (ec1 <- eqb.elasticCoumn(nm1);
                ec2 <- eqb.elasticCoumn(nm2))
             yield ColumnComparisonFilterSpec(ec1, ec2)
+        case LessThan(ar @ AttributeReference(nm, dt, _, _), Literal(value, _)) =>
+          for (ec <- eqb.elasticCoumn(nm)
+               if ElasticDataType.sparkDataType(ec.dataType) == dt)
+            yield RangeFilterSpec(ec, IntervalConditionType.LT, value)
+        case LessThan(Literal(value, _), AttributeReference(nm, dt, _, _)) =>
+          for (ec <- eqb.elasticCoumn(nm)
+               if ElasticDataType.sparkDataType(ec.dataType) == dt)
+            yield RangeFilterSpec(ec, IntervalConditionType.GT, value)
+        case LessThanOrEqual(AttributeReference(nm, dt, _, _), Literal(value, _)) =>
+          for (ec <- eqb.elasticCoumn(nm)
+               if ElasticDataType.sparkDataType(ec.dataType) == dt)
+            yield RangeFilterSpec(ec, IntervalConditionType.LTE, value)
+        case LessThanOrEqual(Literal(value, _), AttributeReference(nm, dt, _, _)) =>
+          for (ec <- eqb.elasticCoumn(nm)
+               if ElasticDataType.sparkDataType(ec.dataType) == dt)
+            yield RangeFilterSpec(ec, IntervalConditionType.GTE, value)
+        case GreaterThan(AttributeReference(nm, dt, _, _), Literal(value, _)) =>
+          for (ec <- eqb.elasticCoumn(nm)
+               if ElasticDataType.sparkDataType(ec.dataType) == dt)
+            yield RangeFilterSpec(ec, IntervalConditionType.GT, value)
+        case GreaterThan(Literal(value, _), AttributeReference(nm, dt, _, _)) =>
+          for (ec <- eqb.elasticCoumn(nm)
+               if ElasticDataType.sparkDataType(ec.dataType) == dt)
+            yield RangeFilterSpec(ec, IntervalConditionType.LT, value)
+        case GreaterThanOrEqual(AttributeReference(nm, dt, _, _), Literal(value, _)) =>
+          for (ec <- eqb.elasticCoumn(nm)
+               if ElasticDataType.sparkDataType(ec.dataType) == dt)
+            yield RangeFilterSpec(ec, IntervalConditionType.GTE, value)
+        case GreaterThanOrEqual(Literal(value, _), AttributeReference(nm, dt, _, _)) =>
+          for (ec <- eqb.elasticCoumn(nm)
+               if ElasticDataType.sparkDataType(ec.dataType) == dt)
+            yield RangeFilterSpec(ec, IntervalConditionType.LTE, value)
+        case _ => None
+
       }
     }
+  }
+
+  val elasticRelationTransform: ElasticTransform = {
+    case (_, PhysicalOperation(projectList, filters,
+    l @ LogicalRelation(d @ ElasticRelation(info), _, _, _))) =>
+      // This is the initial ElasticQueryBuilder which all transformations
+      // are based on.
+      val eqb: Option[ElasticQueryBuilder] = Some(ElasticQueryBuilder(info))
+      val (newFilters, eqb1) = ExprUtil.simplifyConjPred(eqb.get, filters)
+      translateProjectFilter(Some(eqb1), projectList, newFilters)
+    case _ => Nil
   }
 }

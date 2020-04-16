@@ -1,12 +1,32 @@
 package org.rzlabs.elastic
 
-import com.fasterxml.jackson.annotation.{JsonSubTypes, JsonTypeInfo}
-import org.rzlabs.elastic.metadata.ElasticRelationColumn
+import java.io.InputStream
 
-@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.EXISTING_PROPERTY, property = "type")
-@JsonSubTypes(Array(
-  new JsonSubTypes.Type(value = classOf[RangeFilterSpec], name = "range")
-))
+import com.fasterxml.jackson.annotation.{JsonProperty, JsonSubTypes, JsonTypeInfo}
+import org.apache.spark.sql.sources.elastic.CloseableIterator
+import org.apache.spark.sql.types.StructType
+import org.rzlabs.elastic.client.{ElasticClient, ResultRow}
+import org.rzlabs.elastic.metadata.{ElasticOptions, ElasticRelationColumn, ElasticRelationInfo}
+
+sealed trait QuerySpec extends Product {
+
+  val index: String
+  val `type`: Option[String]
+
+  def apply(is: InputStream,
+            conn: ElasticClient,
+            onDone: => Unit = (),
+            fromList: Boolean = false): CloseableIterator[ResultRow]
+
+  def schemaFromQuerySpec(info: ElasticRelationInfo): StructType
+
+  def executeQuery(client: ElasticClient): CloseableIterator[ResultRow] = {
+    client.executeQueryAsStream(this)
+  }
+
+  def mapSparkColNameToElasticColName(info: ElasticRelationInfo): Map[String, String] = Map()
+}
+
 sealed trait FilterSpec
 
 /**
@@ -40,6 +60,18 @@ object RangeFilterSpec {
     }
     new RangeFilterSpec(range)
   }
+
+  def apply(ec: ElasticRelationColumn,
+            conditionType: IntervalConditionType.Value,
+            value: Any) = conditionType match {
+    case IntervalConditionType.EQ =>
+      new RangeFilterSpec(Map[String, Map[String, Any]](ec.column ->
+        Map[String, Any](IntervalConditionType.GTE.toString -> value,
+          IntervalConditionType.LTE.toString -> value)))
+    case _ =>
+      new RangeFilterSpec(Map[String, Map[String, Any]](ec.column ->
+        Map[String, Any](conditionType.toString -> value)))
+  }
 }
 
 case class TermFilterSpec(term: Map[String, Any]) extends FilterSpec
@@ -59,6 +91,20 @@ object TermFilterSpec {
       new TermFilterSpec(
         Map[String, Any](name -> value)
       )
+  }
+}
+
+case class TermsFilterSpec(terms: Map[String, List[Any]]) extends FilterSpec {
+  def this(name: String, vals: List[Any]) {
+    this(Map[String, List[Any]](name -> vals))
+  }
+}
+
+case class FieldSpec(field: String)
+
+case class ExistsFilterSpec(exists: FieldSpec) extends FilterSpec {
+  def this(name: String) {
+    this(FieldSpec(name))
   }
 }
 
@@ -102,3 +148,21 @@ object ColumnComparisonFilterSpec {
       )
   }
 }
+
+//sealed trait ConjExpressionFilterSpec extends FilterSpec
+//
+//case class ShouldExpressionFilterSpec(should: List[FilterSpec]) extends ConjExpressionFilterSpec
+//
+//case class MustExpressionFilterSpec(must: List[FilterSpec]) extends ConjExpressionFilterSpec
+//
+//case class MustNotExpressionFilterSpec(@JsonProperty("must_no")
+//                                       mustNot: List[FilterSpec]) extends ConjExpressionFilterSpec
+//
+//case class FilterExpressionFilterSpec(filter: List[FilterSpec]) extends ConjExpressionFilterSpec
+
+case class ConjExpressionFilterSpec(must: List[FilterSpec] = null,
+                                   @JsonProperty("must_not") mustNot: List[FilterSpec] = null,
+                                   should: List[FilterSpec] = null,
+                                   filter: List[FilterSpec] = null)
+
+case class BoolExpressionFilterSpec(bool: ConjExpressionFilerSpec) extends FilterSpec

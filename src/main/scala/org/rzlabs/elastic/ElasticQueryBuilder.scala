@@ -2,6 +2,9 @@ package org.rzlabs.elastic
 
 import java.util.concurrent.atomic.AtomicLong
 
+import org.apache.spark.sql.catalyst.expressions.{Expression, NamedExpression}
+import org.apache.spark.sql.catalyst.plans.logical.Aggregate
+import org.apache.spark.sql.types.DataType
 import org.rzlabs.elastic.metadata.{ElasticRelationColumn, ElasticRelationInfo}
 
 import scala.collection.mutable.{Map => MMap}
@@ -9,8 +12,14 @@ import scala.collection.mutable.{Map => MMap}
 case class ElasticQueryBuilder(relationInfo: ElasticRelationInfo,
                                queryIntervals: QueryIntervals,
                                referenceElasticColumns: MMap[String, ElasticRelationColumn] = MMap(),
+                               filterSpec: Option[FilterSpec] = None,
                                projectionAliasMap: Map[String, String] = Map(),
+                               outputAttributeMap: Map[String, (Expression, DataType, DataType, String)] = Map(),
+                               avgExpressions: Map[Expression, (String, String)] = Map(),
+                               aggregateOp: Option[Aggregate] = None,
                                curId: AtomicLong = new AtomicLong(-1),
+                               origProjectList: Option[Seq[NamedExpression]] = None,
+                               origFilter: Option[Expression] = None,
                                hasUnpushedProjections: Boolean = false,
                                hasUnpushedFilters: Boolean = false) {
 
@@ -44,6 +53,20 @@ case class ElasticQueryBuilder(relationInfo: ElasticRelationInfo,
     case IntervalConditionType.GTE =>
       queryIntervals.gteCond(ic.dt).map(qi => this.copy(queryIntervals = qi))
 
+  }
+
+  def filterSpecification(f: FilterSpec) = (filterSpec, f) match {
+    case (Some(fs), _) =>
+      this.copy(filterSpec =
+        Some(BoolExpressionFilterSpec(ConjExpressionFilterSpec(must = List(f, fs)))))
+    case (None, _) =>
+      this.copy(filterSpec = Some(f))
+  }
+
+  def outputAttribute(name: String, e: Expression, originalDT: DataType,
+                      elasticDT: DataType, tfName: String = null) = {
+    val tf = if (tfName == null) ElasticValTransform.getTFName(elasticDT) else tfName
+    this.copy(outputAttributeMap = outputAttributeMap + (name -> (e, originalDT, elasticDT, tf)))
   }
 }
 
