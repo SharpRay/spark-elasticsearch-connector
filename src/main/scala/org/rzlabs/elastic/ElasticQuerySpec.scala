@@ -4,7 +4,7 @@ import java.io.InputStream
 
 import com.fasterxml.jackson.annotation.{JsonProperty, JsonSubTypes, JsonTypeInfo}
 import org.apache.spark.sql.sources.elastic.CloseableIterator
-import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.types.{StructField, StructType}
 import org.rzlabs.elastic.client.{ElasticClient, ResultRow}
 import org.rzlabs.elastic.metadata.{ElasticOptions, ElasticRelationColumn, ElasticRelationInfo}
 
@@ -25,6 +25,27 @@ sealed trait QuerySpec extends Product {
   }
 
   def mapSparkColNameToElasticColName(info: ElasticRelationInfo): Map[String, String] = Map()
+}
+
+case class SearchQuerySpec(index: String,
+                         `type`: Option[String],
+                         columns: List[String],
+                         filter: Option[FilterSpec]) extends QuerySpec {
+
+  override def schemaFromQuerySpec(info: ElasticRelationInfo): StructType = {
+    val fields = columns.map { col =>
+      StructField(col, ElasticDataType.sparkDataType(info.indexInfo.columns(col).dataType))
+    }
+
+    StructType(fields)
+  }
+
+  override def apply(is: InputStream,
+                     conn: ElasticClient,
+                     onDone: => Unit = (),
+                     fromList: Boolean = false): CloseableIterator[ResultRow] = {
+
+  }
 }
 
 sealed trait FilterSpec
@@ -165,4 +186,4 @@ case class ConjExpressionFilterSpec(must: List[FilterSpec] = null,
                                    should: List[FilterSpec] = null,
                                    filter: List[FilterSpec] = null)
 
-case class BoolExpressionFilterSpec(bool: ConjExpressionFilerSpec) extends FilterSpec
+case class BoolExpressionFilterSpec(bool: ConjExpressionFilterSpec) extends FilterSpec

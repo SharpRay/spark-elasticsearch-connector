@@ -97,3 +97,5 @@ case class IndexProperties(properties: Map[String, IndexProperty])
 sealed trait ResultRow {
   def event: Map[String, Any]
 }
+
+case class SearchResultRow(event: Map[String, Any]) extends ResultRow
