@@ -4,7 +4,7 @@ import java.io.InputStream
 
 import com.fasterxml.jackson.core.JsonToken
 import org.apache.spark.util.NextIterator
-import org.rzlabs.elastic.client.SearchResultRow
+import org.rzlabs.elastic.client.{ResultRow, SearchResultRow}
 import org.fasterxml.jackson.databind.ObjectMapper.jsonMapper
 import org.rzlabs.elastic.ElasticIndexException
 
@@ -122,4 +122,13 @@ object ElasticSearchResultIterator {
       new ElasticSearchResultStreamingIterator(is, onDone)
     }
   }
+}
+
+class DummyResultIterator extends NextIterator[ResultRow] with CloseableIterator[ResultRow] {
+  override protected def getNext(): ResultRow = {
+    finished = true
+    null
+  }
+
+  override protected def close(): Unit = ()
 }

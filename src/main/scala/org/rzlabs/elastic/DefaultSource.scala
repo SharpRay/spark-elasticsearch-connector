@@ -51,7 +51,7 @@ class DefaultSource extends RelationProvider with MyLogging {
 
     val elasticRelationInfo = ElasticMetadataCache.elasticRelation(elasticOptions)
 
-    val elasticRelation = ElasticRelation(elasticRelationInfo)(sqlContext)
+    val elasticRelation = ElasticRelation(elasticRelationInfo, None)(sqlContext)
 
     elasticRelation
   }

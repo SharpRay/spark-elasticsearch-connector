@@ -10,7 +10,7 @@ import org.rzlabs.elastic.metadata.{ElasticRelationColumn, ElasticRelationInfo}
 import scala.collection.mutable.{Map => MMap}
 
 case class ElasticQueryBuilder(relationInfo: ElasticRelationInfo,
-                               queryIntervals: QueryIntervals,
+//                               queryIntervals: QueryIntervals,
                                referenceElasticColumns: MMap[String, ElasticRelationColumn] = MMap(),
                                filterSpec: Option[FilterSpec] = None,
                                projectionAliasMap: Map[String, String] = Map(),
@@ -43,17 +43,17 @@ case class ElasticQueryBuilder(relationInfo: ElasticRelationInfo,
    */
   def nextAlias: String = s"alias${curId.getAndDecrement()}"
 
-  def queryInterval(ic: IntervalCondition): Option[ElasticQueryBuilder] = ic.`type` match {
-    case IntervalConditionType.LT =>
-      queryIntervals.ltCond(ic.dt).map(qi => this.copy(queryIntervals = qi))
-    case IntervalConditionType.LTE =>
-      queryIntervals.lteCond(ic.dt).map(qi => this.copy(queryIntervals = qi))
-    case IntervalConditionType.GT =>
-      queryIntervals.gtCond(ic.dt).map(qi => this.copy(queryIntervals = qi))
-    case IntervalConditionType.GTE =>
-      queryIntervals.gteCond(ic.dt).map(qi => this.copy(queryIntervals = qi))
-
-  }
+//  def queryInterval(ic: IntervalCondition): Option[ElasticQueryBuilder] = ic.`type` match {
+//    case IntervalConditionType.LT =>
+//      queryIntervals.ltCond(ic.dt).map(qi => this.copy(queryIntervals = qi))
+//    case IntervalConditionType.LTE =>
+//      queryIntervals.lteCond(ic.dt).map(qi => this.copy(queryIntervals = qi))
+//    case IntervalConditionType.GT =>
+//      queryIntervals.gtCond(ic.dt).map(qi => this.copy(queryIntervals = qi))
+//    case IntervalConditionType.GTE =>
+//      queryIntervals.gteCond(ic.dt).map(qi => this.copy(queryIntervals = qi))
+//
+//  }
 
   def filterSpecification(f: FilterSpec) = (filterSpec, f) match {
     case (Some(fs), _) =>

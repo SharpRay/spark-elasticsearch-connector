@@ -39,11 +39,11 @@ trait ProjectFilterTransform {
     } else Seq()
   }
 
-  def intervalFilterExpression(eqb: ElasticQueryBuilder, ice: SparkIntervalConditionExtractor,
-                               filter: Expression): Option[ElasticQueryBuilder] = filter match {
-    case ice(ic) => eqb.queryInterval(ic)
-    case _ => None
-  }
+//  def intervalFilterExpression(eqb: ElasticQueryBuilder, ice: SparkIntervalConditionExtractor,
+//                               filter: Expression): Option[ElasticQueryBuilder] = filter match {
+//    case ice(ic) => eqb.queryInterval(ic)
+//    case _ => None
+//  }
 
   def columnFilterExpression(eqb: ElasticQueryBuilder, ice: SparkIntervalConditionExtractor,
                              filter: Expression): Option[FilterSpec] = {
@@ -169,7 +169,7 @@ trait ProjectFilterTransform {
 
   val elasticRelationTransform: ElasticTransform = {
     case (_, PhysicalOperation(projectList, filters,
-    l @ LogicalRelation(d @ ElasticRelation(info), _, _, _))) =>
+    l @ LogicalRelation(d @ ElasticRelation(info, _), _, _, _))) =>
       // This is the initial ElasticQueryBuilder which all transformations
       // are based on.
       val eqb: Option[ElasticQueryBuilder] = Some(ElasticQueryBuilder(info))

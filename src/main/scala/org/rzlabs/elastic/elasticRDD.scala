@@ -1,10 +1,148 @@
 package org.rzlabs.elastic
 
 import com.fasterxml.jackson.core.Base64Variants
+import org.apache.http.concurrent.Cancellable
+import org.apache.spark.{InterruptibleIterator, Partition, TaskContext}
+import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.{MyLogging, SQLContext}
+import org.apache.spark.sql.catalyst.InternalRow
+import org.apache.spark.sql.catalyst.expressions.GenericInternalRow
 import org.apache.spark.sql.catalyst.util.DateTimeUtils.SQLTimestamp
+import org.apache.spark.sql.sources.elastic.{CloseableIterator, DummyResultIterator}
 import org.apache.spark.sql.types._
 import org.apache.spark.unsafe.types.UTF8String
 import org.joda.time.{DateTime, DateTimeZone}
+import org.rzlabs.elastic.client.{CancellableHolder, ConnectionManager, ElasticClient, ResultRow}
+import org.rzlabs.elastic.metadata.ElasticRelationInfo
+import org.rzlabs.elasticsearch.ElasticQuery
+
+import scala.collection.concurrent.TrieMap
+
+case class ElasticPartition(index: Int, info: ElasticRelationInfo) extends Partition {
+
+  def queryClient(httpMaxConnPerRoute: Int, httpMaxConnTotal: Int) = {
+    ConnectionManager.init(httpMaxConnPerRoute, httpMaxConnTotal)
+    new ElasticClient(info.options.host)
+  }
+}
+
+class ElasticRDD(sqlContext: SQLContext,
+                 info: ElasticRelationInfo,
+                 val elasticQuery: ElasticQuery
+                ) extends RDD[InternalRow](sqlContext.sparkContext, Nil) {
+
+  val httpMaxConnPerRoute = info.options.poolMaxConnectionsPerRoute
+  val httpMaxConnTotal = info.options.poolMaxConnections
+  val schema: StructType = elasticQuery.schema(info)
+
+  // TODO: add recording Elastic query logic.
+
+  override def getPartitions: Array[Partition] = {
+    Array(new ElasticPartition(0, info))
+  }
+
+  override def compute(split: Partition, context: TaskContext): Iterator[InternalRow] = {
+    val partition = split.asInstanceOf[ElasticPartition]
+    val qrySpec = elasticQuery.qrySpec
+
+    var cancelCallback: TaskCancelHandler.TaskCancelHolder = null
+    var resultIter: CloseableIterator[ResultRow] = null
+    var client: ElasticClient = null
+    val queryId = s"query-${System.nanoTime()}"
+    var queryStartTime = System.currentTimeMillis()
+    var queryStartDT = new DateTime().toString()
+    try {
+      cancelCallback = TaskCancelHandler.registerQueryId(queryId, context)
+      client = partition.queryClient(httpMaxConnPerRoute, httpMaxConnTotal)
+      client.setCancellableHolder(cancelCallback)
+      queryStartTime = System.currentTimeMillis()
+      queryStartDT = new DateTime().toString()
+      resultIter = qrySpec.executeQuery(client)
+    } catch {
+      case _ if cancelCallback.wasCancelTriggered && client != null =>
+        resultIter = new DummyResultIterator()
+      case e: Throwable => throw e
+    } finally {
+      TaskCancelHandler.clearQueryId(queryId)
+    }
+
+    val elasticExecTime = System.currentTimeMillis() - queryStartTime
+    var numRows: Int = 0
+
+    context.addTaskCompletionListener { taskContext =>
+      resultIter.closeIfNeeded()
+    }
+
+    val rIter = new InterruptibleIterator[ResultRow](context, resultIter)
+    val nameToTF: Map[String, String] = elasticQuery.getValTFMap()
+
+    rIter.map { r =>
+      numRows += 1
+      val row = new GenericInternalRow(schema.fields.map { field =>
+        ElasticValTransform.sparkValue(field, r.event(field.name),
+          nameToTF.get(field.name), info.options.timeZoneId)
+      })
+      row
+    }
+  }
+}
+
+object TaskCancelHandler extends MyLogging {
+
+  private val taskMap = TrieMap[String, (Cancellable, TaskCancelHolder, TaskContext)]()
+
+  class TaskCancelHolder(val queryId: String, val taskContext: TaskContext) extends CancellableHolder {
+
+    override def setCancellable(c: Cancellable): Unit = {
+      log.debug(s"set cancellable for query $queryId")
+      taskMap(queryId) = (c, this, taskContext)
+    }
+
+    @volatile var wasCancelTriggered = false
+  }
+
+  def registerQueryId(queryId: String, taskContext: TaskContext): TaskCancelHolder = {
+    log.debug(s"register query $queryId")
+    new TaskCancelHolder(queryId, taskContext)
+  }
+
+  def clearQueryId(queryId: String) = taskMap.remove(queryId)
+
+  val sec5: Long = 5 * 1000
+
+  object cancelCheckThread extends Runnable with MyLogging {
+
+    def run(): Unit = {
+      while (true) {
+        Thread.sleep(sec5)
+        log.debug("cancelThread woke up")
+        var canceledTasks: Seq[String] = Seq()  // queryId list
+        taskMap.foreach {
+          case (queryId, (request, taskCancelHolder: TaskCancelHolder, taskContext)) =>
+            log.debug(s"checking task stateId = ${taskContext.stageId()}, " +
+              s"partitionId = ${taskContext.partitionId()}, " +
+              s"isInterrupted = ${taskContext.isInterrupted()}")
+            if (taskContext.isInterrupted()) {
+              try {
+                taskCancelHolder.wasCancelTriggered = true
+                request.cancel()
+                log.info(s"aborted http request for query $queryId: $request")
+                canceledTasks = canceledTasks :+ queryId
+              } catch {
+                case e: Throwable => log.warn(s"failed to abort http request: $request")
+              }
+            }
+        }
+        canceledTasks.foreach(clearQueryId)
+      }
+    }
+  }
+
+  val t = new Thread(cancelCheckThread)
+  t.setName("ElasticRDD-TaskCancelCheckThread")
+  t.setDaemon(true)
+  t.start()
+}
 
 object ElasticValTransform {
 

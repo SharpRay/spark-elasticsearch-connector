@@ -259,7 +259,7 @@ class ElasticClient(val host: String,
   }
 
   @throws[ElasticIndexException]
-  def mappings(index: String, `type`: String, skipUnknownTypeField: Boolean) = {
+  def mappings(index: String, `type`: Option[String], skipUnknownTypeField: Boolean) = {
     val url = s"http://$host:$port/${index}/_mappings"
     val resp: String = get(url)
     logDebug(s"The json response of '_mappings' query: \n$resp")
@@ -267,13 +267,13 @@ class ElasticClient(val host: String,
       new TypeReference[Map[String, IndexMappings]] {})
 
     val indexMappings: IndexMappings = mappingsResp.get(index).get
-    val theType = if (`type` == null) {
+    val theType: String = if (`type`.isEmpty) {
       indexMappings.mappings.head._1
     } else {
-      if (!indexMappings.mappings.contains(`type`)) {
+      if (!indexMappings.mappings.contains(`type`.get)) {
         throw new ElasticIndexException(s"The type '${`type`}' do not exist.")
       }
-      `type`
+      `type`.get
     }
     ElasticIndex(index, theType,
       indexMappings.mappings.get(theType).get.properties.map(prop => {

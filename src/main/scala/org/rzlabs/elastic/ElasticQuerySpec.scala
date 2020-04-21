@@ -74,10 +74,10 @@ object RangeFilterSpec {
     var range = Map[String, Map[String, Any]]()
     ic.`type` match {
       case IntervalConditionType.EQ =>
-        range += (columnName ->
-          (IntervalConditionType.GTE.toString -> millis,
+        range = range + (columnName ->
+          Map(IntervalConditionType.GTE.toString -> millis,
             IntervalConditionType.LTE.toString -> millis))
-      case _ => range += (columnName -> (ic.`type`.toString -> millis))
+      case _ => range = range + (columnName -> Map(ic.`type`.toString -> millis))
     }
     new RangeFilterSpec(range)
   }
