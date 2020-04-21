@@ -1,12 +1,14 @@
 package org.rzlabs.elastic
 
-import java.io.InputStream
+import java.io.{ByteArrayOutputStream, InputStream}
 
-import com.fasterxml.jackson.annotation.{JsonProperty, JsonSubTypes, JsonTypeInfo}
+import com.fasterxml.jackson.annotation._
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import org.apache.spark.sql.sources.elastic.{CloseableIterator, ElasticSearchResultIterator}
 import org.apache.spark.sql.types.{StructField, StructType}
 import org.rzlabs.elastic.client.{ElasticClient, ResultRow}
-import org.rzlabs.elastic.metadata.{ElasticOptions, ElasticRelationColumn, ElasticRelationInfo}
+import org.rzlabs.elastic.metadata.{ElasticRelationColumn, ElasticRelationInfo}
 
 sealed trait QuerySpec extends Product {
 
@@ -27,10 +29,20 @@ sealed trait QuerySpec extends Product {
   def mapSparkColNameToElasticColName(info: ElasticRelationInfo): Map[String, String] = Map()
 }
 
+@JsonIgnoreProperties(Array("index", "type"))
 case class SearchQuerySpec(index: String,
-                         `type`: Option[String],
-                         columns: List[String],
-                         filter: Option[FilterSpec]) extends QuerySpec {
+                           `type`: Option[String],
+                           @JsonProperty("_source") columns: List[String],
+                           @JsonProperty("query") filter: Option[FilterSpec]) extends QuerySpec {
+
+  def toJSON(): String = {
+    val objectMapper = new ObjectMapper()
+    objectMapper.registerModule(DefaultScalaModule)
+    val data = this.copy()
+    val stream = new ByteArrayOutputStream()
+    objectMapper.writeValue(stream, data)
+    stream.toString()
+  }
 
   override def schemaFromQuerySpec(info: ElasticRelationInfo): StructType = {
     val fields = columns.map { col =>

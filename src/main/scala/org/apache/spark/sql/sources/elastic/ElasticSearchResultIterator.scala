@@ -23,7 +23,7 @@ private class ElasticSearchResultStreamingIterator(is: InputStream,
 
   private def gotoNamedHitsJsonTokenNext = {
     token = parser.nextToken()  // FIELD_NAME
-    while (token != JsonToken.FIELD_NAME || parser.currentName() != "hits") {
+    while (token != JsonToken.FIELD_NAME || parser.getCurrentName() != "hits") {
       if (token == JsonToken.START_OBJECT)
         jsonMapper.readValue(parser, classOf[Map[String, Any]])
       token = parser.nextToken()
@@ -88,7 +88,7 @@ private class ElasticSearchResultStaticIterator(is: InputStream,
 
   private def gotoNamedHitsJsonTokenNext = {
     token = parser.nextToken()  // FIELD_NAME
-    while (token != JsonToken.FIELD_NAME || parser.currentName() != "hits") {
+    while (token != JsonToken.FIELD_NAME || parser.getCurrentName() != "hits") {
       if (token == JsonToken.START_OBJECT)
         jsonMapper.readValue(parser, classOf[Map[String, Any]])
       token = parser.nextToken()

@@ -4,6 +4,7 @@ import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.planning.PhysicalOperation
 import org.apache.spark.sql.execution.datasources.LogicalRelation
 import org.apache.spark.sql.util.ExprUtil
+import org.apache.spark.unsafe.types.UTF8String
 import org.rzlabs.elastic._
 import org.rzlabs.elasticsearch.ElasticRelation
 
@@ -117,6 +118,11 @@ trait ProjectFilterTransform {
       val ice = new SparkIntervalConditionExtractor(eqb)
       filter match {
         case ice(ic) => Some(RangeFilterSpec(ic))
+        case EqualTo(AttributeReference(nm, dt, _, _), Literal(value, _))
+          if value.isInstanceOf[UTF8String] =>
+          for (ec <- eqb.elasticCoumn(nm)
+               if ElasticDataType.sparkDataType(ec.dataType) == dt)
+            yield TermFilterSpec(ec, ec.column, value.toString);
         case EqualTo(AttributeReference(nm, dt, _, _), Literal(value, _)) =>
           for (ec <- eqb.elasticCoumn(nm)
                if ElasticDataType.sparkDataType(ec.dataType) == dt)

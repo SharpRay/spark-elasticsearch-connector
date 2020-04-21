@@ -53,6 +53,8 @@ class DefaultSource extends RelationProvider with MyLogging {
 
     val elasticRelation = ElasticRelation(elasticRelationInfo, None)(sqlContext)
 
+    addPhysicalRules(sqlContext, elasticOptions)
+
     elasticRelation
   }
 

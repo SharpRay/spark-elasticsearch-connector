@@ -14,7 +14,9 @@ val myDependencies = Seq(
   "com.fasterxml.jackson.dataformat" % "jackson-dataformat-smile" % jacksonVersion,
   "com.fasterxml.jackson.datatype" % "jackson-datatype-joda" % jacksonVersion,
   "com.fasterxml.jackson.jaxrs" % "jackson-jaxrs-smile-provider" % jacksonVersion,
-  "org.apache.httpcomponents" % "httpclient" % apacheHttpVersion
+  "org.apache.httpcomponents" % "httpclient" % apacheHttpVersion,
+  "io.spray" %% "spray-json" % "1.3.5",
+  "org.scalatest" %% "scalatest" % "3.1.1" % Test
 )
 
 lazy val commonSettings = Seq(

@@ -6,7 +6,7 @@ import org.apache.spark.sql.execution.{ProjectExec, RowDataSourceScanExec, Spark
 import org.apache.spark.sql.types.DoubleType
 import org.apache.spark.sql.util.ExprUtil
 import org.apache.spark.sql.{MyLogging, Strategy}
-import org.rzlabs.elastic.{ElasticDataType, ElasticQueryBuilder, QuerySpec, SearchQuerySpec}
+import org.rzlabs.elastic._
 import org.rzlabs.elasticsearch.{ElasticAttribute, ElasticQuery, ElasticRelation}
 
 private[sql] class ElasticStrategy(planner: ElasticPlanner) extends Strategy
