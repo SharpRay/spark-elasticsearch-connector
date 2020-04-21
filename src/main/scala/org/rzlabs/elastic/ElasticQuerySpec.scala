@@ -3,7 +3,7 @@ package org.rzlabs.elastic
 import java.io.InputStream
 
 import com.fasterxml.jackson.annotation.{JsonProperty, JsonSubTypes, JsonTypeInfo}
-import org.apache.spark.sql.sources.elastic.CloseableIterator
+import org.apache.spark.sql.sources.elastic.{CloseableIterator, ElasticSearchResultIterator}
 import org.apache.spark.sql.types.{StructField, StructType}
 import org.rzlabs.elastic.client.{ElasticClient, ResultRow}
 import org.rzlabs.elastic.metadata.{ElasticOptions, ElasticRelationColumn, ElasticRelationInfo}
@@ -44,7 +44,7 @@ case class SearchQuerySpec(index: String,
                      conn: ElasticClient,
                      onDone: => Unit = (),
                      fromList: Boolean = false): CloseableIterator[ResultRow] = {
-
+    ElasticSearchResultIterator(is, onDone, fromList)
   }
 }
 

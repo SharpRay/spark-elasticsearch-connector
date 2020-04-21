@@ -20,7 +20,7 @@ class DefaultSource extends RelationProvider with MyLogging {
       )
     )
 
-    val `type`: String  = parameters.getOrElse(ELASTIC_TYPE, null)
+    val `type`: Option[String]  = parameters.get(ELASTIC_TYPE)
 
     val poolMaxConnectionsPerRoute: Int = parameters.getOrElse(CONN_POOL_MAX_CONNECTIONS_PER_ROUTE,
       DEFAULT_CONN_POOL_MAX_CONNECTIONS_PER_ROUTE).toInt

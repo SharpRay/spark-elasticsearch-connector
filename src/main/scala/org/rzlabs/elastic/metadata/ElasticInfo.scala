@@ -4,7 +4,7 @@ import org.rzlabs.elastic.ElasticIndex
 
 case class ElasticOptions(host: String,
                           index: String,
-                          `type`: String,
+                          `type`: Option[String],
                           poolMaxConnectionsPerRoute: Int,
                           poolMaxConnections: Int,
                           cacheIndexMappings: Boolean,

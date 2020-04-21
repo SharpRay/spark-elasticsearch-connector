@@ -4,7 +4,7 @@ import org.apache.spark.sql.catalyst.expressions.{Expression, NamedExpression}
 import org.apache.spark.sql.catalyst.plans.logical.{LogicalPlan, Project}
 import org.apache.spark.sql.execution.{SparkPlan, UnionExec}
 import org.apache.spark.sql.{MyLogging, Strategy}
-import org.rzlabs.elastic.{ElasticDataType, ElasticQueryBuilder}
+import org.rzlabs.elastic.{ElasticDataType, ElasticQueryBuilder, QuerySpec, SearchQuerySpec}
 
 private[sql] class ElasticStrategy(planner: ElasticPlanner) extends Strategy
   with MyLogging {
@@ -16,7 +16,7 @@ private[sql] class ElasticStrategy(planner: ElasticPlanner) extends Strategy
         // TODO: aggregation implementation
         null
       } else {
-        scanPlan(eqb, lp)
+        searchPlan(eqb, lp)
       }
     }
 
@@ -24,14 +24,14 @@ private[sql] class ElasticStrategy(planner: ElasticPlanner) extends Strategy
     if (plan.size < 2) plan else Seq(UnionExec(plan))
   }
 
-  private def scanPlan(eqb: ElasticQueryBuilder, lp: LogicalPlan): SparkPlan = {
+  private def searchPlan(eqb: ElasticQueryBuilder, lp: LogicalPlan): SparkPlan = {
     lp match {
-      case Project(projectList, _) => scanPlan(eqb, projectList)
+      case Project(projectList, _) => searchPlan(eqb, projectList)
       case _ => null
     }
   }
 
-  private def scanPlan(eqb: ElasticQueryBuilder,
+  private def searchPlan(eqb: ElasticQueryBuilder,
                        projectList: Seq[NamedExpression]): SparkPlan = {
 
     var eqb1 = eqb
@@ -52,6 +52,13 @@ private[sql] class ElasticStrategy(planner: ElasticPlanner) extends Strategy
 
     val elasticSchema = new ElasticSchema(eqb1)
 
-    val qrySpec: QuerySpec
+    val columns = eqb1.referenceElasticColumns.values.map(_.column).toList
+
+    val qrySpec: QuerySpec = SearchQuerySpec(planner.options.index,
+      planner.options.`type`,
+      columns,
+      eqb1.filterSpec)
+
+
   }
 }
