@@ -28,24 +28,32 @@ case class UnknownProperty() extends IndexProperty {
   override def dataType = ElasticDataType.Unknown
 }
 
-case class TextProperty(fields: Map[String, IndexProperty],
-                        analyzer: String) extends IndexProperty {
+case class TextProperty(fields: Option[Map[String, IndexProperty]],
+                        analyzer: Option[String]) extends IndexProperty {
 
   override def dataType = ElasticDataType.Text
 
   def keywordFields(): Option[Seq[String]] = {
-    if (fields == null) {
+    if (fields.isEmpty) {
       None
     } else {
-      Some(fields.filter(field => field._2.isInstanceOf[KeywordProperty]).keys.toSeq)
+      fields.map(fs => fs.filter(f => f._2.isInstanceOf[KeywordProperty]).keys.toSeq)
     }
   }
 }
+
+case class DateProperty(format: Option[String]) extends IndexProperty {
+
+  override def dataType = ElasticDataType.Date
+
+  def formats: Seq[String] = format match {
+    case Some(fmt) => fmt.split("||").toSeq
+    case None => Nil
+  }
+}
+
 case class KeywordProperty() extends IndexProperty {
   override def dataType = ElasticDataType.Keyword
-}
-case class DateProperty() extends IndexProperty {
-  override def dataType = ElasticDataType.Date
 }
 case class LongProperty() extends IndexProperty {
   override def dataType = ElasticDataType.Long

@@ -181,6 +181,7 @@ trait ProjectFilterTransform {
       val eqb: Option[ElasticQueryBuilder] = Some(ElasticQueryBuilder(info))
       val (newFilters, eqb1) = ExprUtil.simplifyConjPred(eqb.get, filters)
       translateProjectFilter(Some(eqb1), projectList, newFilters)
-    case _ => Nil
+    case _ =>
+      Nil
   }
 }

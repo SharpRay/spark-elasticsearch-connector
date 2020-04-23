@@ -56,7 +56,7 @@ object ElasticDataType extends Enumeration {
     case Byte => ByteType
     case Float => FloatType
     case Double => DoubleType
-    case Date => DateType
+    case Date => TimestampType
     case Boolean => BooleanType
     case Nested => sparkStructType(property)
     case Unknown => StringType
@@ -67,7 +67,7 @@ object ElasticDataType extends Enumeration {
       val fieldName = p._1
       val fieldType = p._2.dataType match {
         case ElasticDataType.Text | ElasticDataType.Keyword => StringType
-        case ElasticDataType.Date => DateType
+        case ElasticDataType.Date => TimestampType
         case ElasticDataType.Long => LongType
         case ElasticDataType.Int => IntegerType
         case ElasticDataType.Short => ShortType

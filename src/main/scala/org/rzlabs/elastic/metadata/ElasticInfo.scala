@@ -10,7 +10,8 @@ case class ElasticOptions(host: String,
                           cacheIndexMappings: Boolean,
                           skipUnknownTypeFields: Boolean,
                           debugTransformations: Boolean,
-                          timeZoneId: String)
+                          timeZoneId: String,
+                          dateTypeFormats: Seq[String])
 
 case class ElasticRelationInfo(name: String,
                                indexInfo: ElasticIndex,

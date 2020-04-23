@@ -39,6 +39,9 @@ class DefaultSource extends RelationProvider with MyLogging {
 
     val timeZoneId: String = parameters.getOrElse(TIME_ZONE_ID, DEFAULT_TIME_ZONE_ID)
 
+    val dateTypeFormats: Seq[String] = parameters.getOrElse(DATE_TYPE_FORMAT, DEFAULT_DATE_TYPE_FORMAT)
+      .split("||").toSeq
+
     val elasticOptions = ElasticOptions(host,
       index,
       `type`,
@@ -47,7 +50,8 @@ class DefaultSource extends RelationProvider with MyLogging {
       cacheIndexMappings,
       skipUnknownTypeFields,
       debugTransformations,
-      timeZoneId)
+      timeZoneId,
+      dateTypeFormats)
 
     val elasticRelationInfo = ElasticMetadataCache.elasticRelation(elasticOptions)
 
@@ -125,4 +129,7 @@ object DefaultSource {
 
   val TIME_ZONE_ID = "timeZoneId"
   val DEFAULT_TIME_ZONE_ID = "UTC"
+
+  val DATE_TYPE_FORMAT = "dateTypeFormat"
+  val DEFAULT_DATE_TYPE_FORMAT = "strict_date_optional_time||epoch_millis"
 }
