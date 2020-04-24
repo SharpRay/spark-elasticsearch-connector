@@ -223,11 +223,8 @@ object ElasticValTransform {
         }
       case None => throw new ElasticIndexException("WTF? Have no default date type formats?")
     }
-    println("FORMATS =================== " + formats)
-    println("VAL TYPE ================ " + elasticVal.getClass.getCanonicalName)
-    println("TZ ======================== " + tz)
 
-    val evLong = formats.collectFirst {
+    formats.collectFirst {
       case "strict_date_optional_time" | "date_optional_time" if elasticVal.isInstanceOf[String] =>
         timeToLong(elasticVal.asInstanceOf[String]) match {
           case Some(longTime) => longTime * 1000
@@ -241,11 +238,6 @@ object ElasticValTransform {
       case Some(longTime) => longTime
       case _ => throw new ElasticIndexException("Unsupported date type format.")
     }
-
-    println("EVLONG ============= " + evLong)
-    val evl = new DateTime(evLong / 1000, DateTimeZone.forID(tz)).getMillis * 1000.asInstanceOf[SQLTimestamp]
-    println("EVL ============== " + evl)
-    evl
   }
 
   private[this] val toString = (elasticVal: Any, tz: String,
