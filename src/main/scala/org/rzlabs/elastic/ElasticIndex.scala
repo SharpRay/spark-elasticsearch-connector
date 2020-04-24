@@ -10,15 +10,17 @@ case class ElasticIndex(name: String,
 case class ElasticColumn(name: String,
                          property: IndexProperty,
                          dataType: ElasticDataType.Value,
-                         keywordFields: Option[Seq[String]] = None)
+                         keywordFields: Option[Seq[String]] = None,
+                         dateTypeFormats: Option[Seq[String]] = None)
 
 object ElasticColumn {
 
   def apply(name: String, property: IndexProperty): ElasticColumn = property.dataType match {
     case ElasticDataType.Text => ElasticColumn(name, property, ElasticDataType.Text,
         property.asInstanceOf[TextProperty].keywordFields())
+    case ElasticDataType.Date => ElasticColumn(name, property, ElasticDataType.Date,
+      None, property.asInstanceOf[DateProperty].formats)
     case t @ (ElasticDataType.Keyword |
-      ElasticDataType.Date |
       ElasticDataType.Long |
       ElasticDataType.Int |
       ElasticDataType.Short |

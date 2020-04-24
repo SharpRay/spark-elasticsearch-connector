@@ -11,12 +11,14 @@ import org.apache.spark.sql.catalyst.util.DateTimeUtils.SQLTimestamp
 import org.apache.spark.sql.sources.elastic.{CloseableIterator, DummyResultIterator}
 import org.apache.spark.sql.types._
 import org.apache.spark.unsafe.types.UTF8String
+import org.joda.time.format.DateTimeFormat
 import org.joda.time.{DateTime, DateTimeZone}
 import org.rzlabs.elastic.client.{CancellableHolder, ConnectionManager, ElasticClient, ResultRow}
 import org.rzlabs.elastic.metadata.ElasticRelationInfo
 import org.rzlabs.elasticsearch.ElasticQuery
 
 import scala.collection.concurrent.TrieMap
+import scala.util.{Failure, Success, Try}
 
 case class ElasticPartition(index: Int, info: ElasticRelationInfo) extends Partition {
 
@@ -81,8 +83,14 @@ class ElasticRDD(sqlContext: SQLContext,
       val row = new GenericInternalRow(schema.fields.map { field =>
         println("FIELD :::::::::::::::::: " + field)
         println("TF :::::::::::::::::::::::: " + nameToTF)
-        ElasticValTransform.sparkValue(field, r.event(field.name),
-          nameToTF.get(field.name), info.options.timeZoneId)
+        info.indexInfo.columns.get(field.name) match {
+          case Some(ec) =>
+            ElasticValTransform.sparkValue(field, r.event(field.name),
+              nameToTF.get(field.name), info.options.timeZoneId,
+              ec.dateTypeFormats,
+              Some(info.options.dateTypeFormats))
+          case None => throw new ElasticIndexException("WTF? The field not in columns")
+        }
       })
       row
     }
@@ -148,89 +156,107 @@ object TaskCancelHandler extends MyLogging {
 
 object ElasticValTransform {
 
+  object LongTimeTransformer {
+
+    def unapply(timeFormat: (String, Option[String])): Option[Long] = {
+      val time = timeFormat._1
+      val format = timeFormat._2
+      format match {
+        case Some(fmt) =>
+          Try {
+            DateTime.parse(time, DateTimeFormat.forPattern(fmt))
+          } match {
+            case Success(dt) => Some(dt.getMillis)
+            case Failure(_) => None
+          }
+        case _ => None
+      }
+    }
+  }
+
+  private val timeFormats = List[String](
+    "yyyy-MM-dd",
+    "yyyy-MM-dd HH:mm:ss",
+    "yyyy-MM-dd HH:mm:ss.SSS",
+    "yyyy-MM-dd'T'HH:mm:ss",
+    "yyyy-MM-dd'T'HH:mm:ssZ",
+    "yyyy-MM-dd'T'HH:mm:ss.SSS",
+    "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
+  )
+
+  def timeToLong(time: String, format: Option[String] = None): Option[Long] = {
+    (time, format) match {
+      case LongTimeTransformer(longTime) => Some(longTime)
+      case _ =>
+        timeFormats.map(f => (time, Some(f))).collectFirst {
+          case LongTimeTransformer(longTime) => longTime
+        }
+    }
+  }
+
   /**
    * Just date type in es will map to timestampType in Spark,
    * so just the String/Long type of the elasticVal is valid.
    */
-  private[this] val toTSWithTZAdj = (elasticVal: Any, tz: String) => {
-    val evLong =
-      if (elasticVal.isInstanceOf[Double]) {
-        elasticVal.asInstanceOf[Double].toLong
-      } else if (elasticVal.isInstanceOf[BigInt]) {
-        elasticVal.asInstanceOf[BigInt].toLong
-      } else if (elasticVal.isInstanceOf[String]) {
-        elasticVal.asInstanceOf[String].toLong
-      } else if (elasticVal.isInstanceOf[Int]) {
-        elasticVal.asInstanceOf[Int].toLong
-      } else if (elasticVal.isInstanceOf[Integer]) {
-        elasticVal.asInstanceOf[Integer].toLong
-      } else {
-        elasticVal
-      }
-//    val evLong =
-//      if (elasticVal.isInstanceOf[Double]) {
-//      elasticVal.asInstanceOf[Double].toLong
-//    } else if (elasticVal.isInstanceOf[BigInt]) {
-//      elasticVal.asInstanceOf[BigInt].toLong
-//    } else if (elasticVal.isInstanceOf[String]) {
-//      elasticVal.asInstanceOf[String].toLong
-//    } else if (elasticVal.isInstanceOf[Int]) {
-//      elasticVal.asInstanceOf[Int].toLong
-//    } else if (elasticVal.isInstanceOf[Integer]) {
-//      elasticVal.asInstanceOf[Integer].toLong
-//    } else {
-//      elasticVal
-//    }
+  private[this] val toTSWithTZAdj = (elasticVal: Any, tz: String,
+                                     dateTypeFormats: Option[Seq[String]],
+                                     defaultDateTypeFormats: Option[Seq[String]]) => {
+    val evLong = toTS(elasticVal, tz, dateTypeFormats, defaultDateTypeFormats)
 
     // microsecond
-    new DateTime(evLong, DateTimeZone.forID(tz)).getMillis * 1000.asInstanceOf[SQLTimestamp]
+    new DateTime(evLong / 1000, DateTimeZone.forID(tz)).getMillis * 1000.asInstanceOf[SQLTimestamp]
   }
 
   /**
    * Just date type in es will map to timestampType in Spark,
    * so just the String/Long type of the elasticVal is valid.
    */
-  private[this] val toTS = (elasticVal: Any, tz: String) => {
-    if (elasticVal.isInstanceOf[Long]) {
-      // The milliseconds in ES should transform to microseconds in Spark.
-      elasticVal.asInstanceOf[Long] * 1000
-    } else if (elasticVal.isInstanceOf[String]) {
-      var ts = null;
+  private[this] val toTS = (elasticVal: Any, tz: String,
+                            dateTypeFormats: Option[Seq[String]],
+                            defaultDateTypeFormats: Option[Seq[String]]) => {
 
+    val formats: Seq[String] = defaultDateTypeFormats match {
+      case Some(fmt1) =>
+        dateTypeFormats match {
+          case Some(fmt2) => (fmt1 ++ fmt2).distinct
+          case None => fmt1
+        }
+      case None => throw new ElasticIndexException("WTF? Have no default date type formats?")
+    }
+    println("FORMATS =================== " + formats)
+    println("VAL TYPE ================ " + elasticVal.getClass.getCanonicalName)
+    println("TZ ======================== " + tz)
+
+    val evLong = formats.collectFirst {
+      case "strict_date_optional_time" | "date_optional_time" if elasticVal.isInstanceOf[String] =>
+        timeToLong(elasticVal.asInstanceOf[String]) match {
+          case Some(longTime) => longTime * 1000
+          case _ => throw new ElasticIndexException("Unsupported date type format.")
+        }
+      case "epoch_millis" if elasticVal.isInstanceOf[Long] =>
+        elasticVal.asInstanceOf[Long] * 1000
+      case "epoch_second" if elasticVal.isInstanceOf[Int] =>
+        elasticVal.asInstanceOf[Int] * 1000 * 1000
+    } match {
+      case Some(longTime) => longTime
+      case _ => throw new ElasticIndexException("Unsupported date type format.")
     }
 
-
-
-    if (elasticVal.isInstanceOf[Double]) {
-      elasticVal.asInstanceOf[Double].toLong
-    } else if (elasticVal.isInstanceOf[BigInt]) {
-      elasticVal.asInstanceOf[BigInt]
-    } else if (elasticVal.isInstanceOf[Long]) {
-      elasticVal.asInstanceOf[Long] * 1000
-    } else if (elasticVal.isInstanceOf[Int]) {
-      elasticVal.asInstanceOf[Int].toLong
-    } else if (elasticVal.isInstanceOf[Integer]) {
-      elasticVal.asInstanceOf[Integer].toLong
-    } else elasticVal
-
-//    if (elasticVal.isInstanceOf[Double]) {
-//      elasticVal.asInstanceOf[Double].toLong
-//    } else if (elasticVal.isInstanceOf[BigInt]) {
-//      elasticVal.asInstanceOf[BigInt]
-//    } else if (elasticVal.isInstanceOf[Long]) {
-//      elasticVal.asInstanceOf[Long] * 1000
-//    } else if (elasticVal.isInstanceOf[Int]) {
-//      elasticVal.asInstanceOf[Int].toLong
-//    } else if (elasticVal.isInstanceOf[Integer]) {
-//      elasticVal.asInstanceOf[Integer].toLong
-//    } else elasticVal
+    println("EVLONG ============= " + evLong)
+    val evl = new DateTime(evLong / 1000, DateTimeZone.forID(tz)).getMillis * 1000.asInstanceOf[SQLTimestamp]
+    println("EVL ============== " + evl)
+    evl
   }
 
-  private[this] val toString = (elasticVal: Any, tz: String) => {
+  private[this] val toString = (elasticVal: Any, tz: String,
+                                dateTypeFormats: Option[Seq[String]],
+                                defaultDateTypeFormats: Option[Seq[String]]) => {
     UTF8String.fromString(elasticVal.toString)
   }
 
-  private[this] val toInt = (elasticVal: Any, tz: String) => {
+  private[this] val toInt = (elasticVal: Any, tz: String,
+                             dateTypeFormats: Option[Seq[String]],
+                             defaultDateTypeFormats: Option[Seq[String]]) => {
     if (elasticVal.isInstanceOf[Double]) {
       elasticVal.asInstanceOf[Double].toInt
     } else if (elasticVal.isInstanceOf[BigInt]) {
@@ -242,7 +268,9 @@ object ElasticValTransform {
     } else elasticVal
   }
 
-  private[this] val toLong = (elasticVal: Any, tz: String) => {
+  private[this] val toLong = (elasticVal: Any, tz: String,
+                              dateTypeFormats: Option[Seq[String]],
+                              defaultDateTypeFormats: Option[Seq[String]]) => {
     if (elasticVal.isInstanceOf[Double]) {
       elasticVal.asInstanceOf[Double].toLong
     } else if (elasticVal.isInstanceOf[BigInt]) {
@@ -256,7 +284,9 @@ object ElasticValTransform {
     } else elasticVal
   }
 
-  private[this] val toFloat = (elasticVal: Any, tz: String) => {
+  private[this] val toFloat = (elasticVal: Any, tz: String,
+                               dateTypeFormats: Option[Seq[String]],
+                               defaultDateTypeFormats: Option[Seq[String]]) => {
     if (elasticVal.isInstanceOf[Double]) {
       elasticVal.asInstanceOf[Double].toFloat
     } else if (elasticVal.isInstanceOf[BigInt]) {
@@ -270,8 +300,8 @@ object ElasticValTransform {
     } else elasticVal
   }
 
-  private[this] val tfMap: Map[String, (Any, String) => Any] = {
-    Map[String, (Any, String) => Any](
+  private[this] val tfMap: Map[String, (Any, String, Option[Seq[String]], Option[Seq[String]]) => Any] = {
+    Map[String, (Any, String, Option[Seq[String]], Option[Seq[String]]) => Any](
       "toTSWithTZAdj" -> toTSWithTZAdj,
       "toTS" -> toTS,
       "toString" -> toString,
@@ -295,9 +325,12 @@ object ElasticValTransform {
 
   }
 
-  def sparkValue(f: StructField, elasticVal: Any, tfName: Option[String], tz: String): Any = {
+  def sparkValue(f: StructField, elasticVal: Any, tfName: Option[String], tz: String,
+                 dateTypeFormats: Option[Seq[String]],
+                 defaultDateTypeFormats: Option[Seq[String]]): Any = {
     tfName match {
-      case Some(tf) if (tfMap.contains(tf) && elasticVal != null) => tfMap(tf)(elasticVal, tz)
+      case Some(tf) if tfMap.contains(tf) && elasticVal != null =>
+        tfMap(tf)(elasticVal, tz, dateTypeFormats, defaultDateTypeFormats)
       case _ => defaultValueConversion(f, elasticVal)
     }
   }

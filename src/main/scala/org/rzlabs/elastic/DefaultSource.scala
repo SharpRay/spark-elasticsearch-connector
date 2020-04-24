@@ -40,7 +40,7 @@ class DefaultSource extends RelationProvider with MyLogging {
     val timeZoneId: String = parameters.getOrElse(TIME_ZONE_ID, DEFAULT_TIME_ZONE_ID)
 
     val dateTypeFormats: Seq[String] = parameters.getOrElse(DATE_TYPE_FORMAT, DEFAULT_DATE_TYPE_FORMAT)
-      .split("||").toSeq
+      .split("\\|\\|").toSeq
 
     val elasticOptions = ElasticOptions(host,
       index,
@@ -128,7 +128,7 @@ object DefaultSource {
   val DEFAULT_DEBUG_TRANSFORMATIONS = "false"
 
   val TIME_ZONE_ID = "timeZoneId"
-  val DEFAULT_TIME_ZONE_ID = "UTC"
+  val DEFAULT_TIME_ZONE_ID = "GMT"
 
   val DATE_TYPE_FORMAT = "dateTypeFormat"
   val DEFAULT_DATE_TYPE_FORMAT = "strict_date_optional_time||epoch_millis"

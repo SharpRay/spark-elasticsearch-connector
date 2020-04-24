@@ -3,6 +3,10 @@ package org.rzlabs.elastic
 import com.fasterxml.jackson.databind.JsonNode
 import org.apache.spark.sql.MyLogging
 import org.fasterxml.jackson.databind.ObjectMapper.jsonMapper
+import org.joda.time.DateTime
+import org.joda.time.format.DateTimeFormat
+
+import scala.util.{Failure, Success, Try}
 
 object Utils extends MyLogging {
 

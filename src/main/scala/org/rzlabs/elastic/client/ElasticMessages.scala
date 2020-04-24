@@ -46,9 +46,9 @@ case class DateProperty(format: Option[String]) extends IndexProperty {
 
   override def dataType = ElasticDataType.Date
 
-  def formats: Seq[String] = format match {
-    case Some(fmt) => fmt.split("||").toSeq
-    case None => Nil
+  def formats: Option[Seq[String]] = format match {
+    case Some(fmt) => Some(fmt.split("\\|\\|").toSeq)
+    case None => None
   }
 }
 
