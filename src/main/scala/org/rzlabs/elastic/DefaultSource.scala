@@ -82,7 +82,7 @@ class DefaultSource extends RelationProvider with MyLogging {
    * add druid-related physical rules in the `resolveRelation` method in [[DefaultSource]].
    *
    * @param sqlContext
-   * @param druidOptions
+   * @param options
    */
   private def addPhysicalRules(sqlContext: SQLContext, options: ElasticOptions) = {
     rulesLock.synchronized {
