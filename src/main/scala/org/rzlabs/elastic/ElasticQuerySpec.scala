@@ -10,6 +10,19 @@ import org.apache.spark.sql.types.{StructField, StructType}
 import org.rzlabs.elastic.client.{ElasticClient, ResultRow}
 import org.rzlabs.elastic.metadata.{ElasticRelationColumn, ElasticRelationInfo}
 
+object Order extends Enumeration {
+  val ASC = Value("ASC")
+  val DESC = Value("DESC")
+}
+
+object OrderName extends Enumeration {
+  val order = Value("ORDER")
+}
+
+case class LimitSpec(size: Int)
+
+case class SortSpec(sort: Map[String, Map[OrderName.Value, Order.Value]])
+
 sealed trait QuerySpec extends Product {
 
   val index: String

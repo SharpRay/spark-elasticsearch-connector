@@ -4,7 +4,7 @@ import org.apache.spark.sql.MyLogging
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.rzlabs.elastic.ElasticQueryBuilder
 
-class ElasticTransforms extends MyLogging {
+abstract class ElasticTransforms extends MyLogging with ProjectFilterTransform with LimitTransform {
 
   self: ElasticPlanner => // ElasticTransforms can only be inherited by ElasticPlanner
 

@@ -12,6 +12,7 @@ import scala.collection.mutable.{Map => MMap}
 case class ElasticQueryBuilder(relationInfo: ElasticRelationInfo,
 //                               queryIntervals: QueryIntervals,
                                referenceElasticColumns: MMap[String, ElasticRelationColumn] = MMap(),
+                               limitSpec: Option[LimitSpec] = None,
                                filterSpec: Option[FilterSpec] = None,
                                projectionAliasMap: Map[String, String] = Map(),
                                outputAttributeMap: Map[String, (Expression, DataType, DataType, String)] = Map(),
@@ -67,6 +68,16 @@ case class ElasticQueryBuilder(relationInfo: ElasticRelationInfo,
                       elasticDT: DataType, tfName: String = null) = {
     val tf = if (tfName == null) ElasticValTransform.getTFName(elasticDT) else tfName
     this.copy(outputAttributeMap = outputAttributeMap + (name -> (e, originalDT, elasticDT, tf)))
+  }
+
+  def limit(l: LimitSpec) = {
+    this.copy(limitSpec = Some(l))
+  }
+
+  def limit(amt: Int): Option[ElasticQueryBuilder] = limitSpec match {
+    case Some(LimitSpec(l)) if l == Int.MaxValue || l == amt =>
+      Some(limit(LimitSpec(amt)))
+    case _ => None
   }
 }
 

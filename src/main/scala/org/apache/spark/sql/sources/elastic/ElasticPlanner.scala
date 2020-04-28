@@ -10,7 +10,9 @@ class ElasticPlanner(val sqlContext: SQLContext, val options: ElasticOptions)
   extends ElasticTransforms with ProjectFilterTransform {
 
   val transforms: Seq[ElasticTransform] = Seq(
-    elasticRelationTransform.debug("elasticRelationTransform")
+    elasticRelationTransform.debug("elasticRelationTransform") or
+    limitTransform.debug("limit")
+
   )
 
   def plan(eqb: Seq[ElasticQueryBuilder], plan: LogicalPlan): Seq[ElasticQueryBuilder] =
