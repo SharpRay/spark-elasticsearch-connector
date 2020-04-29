@@ -1,6 +1,5 @@
 package org.apache.spark.sql.sources.elastic
 
-import org.apache.spark.sql.catalyst.expressions.Alias
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.rzlabs.elastic.Utils
 
@@ -32,7 +31,7 @@ trait LimitTransform {
         val amt = limitExpr.eval(null).asInstanceOf[Int]
         eqb.limit(amt)
       }
-      Utils.sequence(eqbs.toList,).getOrElse(Nil)
+      Utils.sequence(eqbs.toList).getOrElse(Nil)
     case (eqb, sort @ Limit(limitExpr, Project(projections,
       child @ Sort(_, _, aggChild: Aggregate)))) =>
       // TODO
