@@ -22,8 +22,10 @@ val myDependencies = Seq(
 lazy val commonSettings = Seq(
   organization := "org.rzlabs",
   version := "0.1.0-SNAPSHOT",
-  
-  scalaVersion := "2.11.12"
+  scalaVersion := "2.11.12",
+  scalacOptions += "-target:jvm-1.8",
+  javacOptions in compile ++= Seq("-source", "1.8", "-target", "1.8"),
+  test in assembly := {}
 )
 
 lazy val root = (project in file("."))
