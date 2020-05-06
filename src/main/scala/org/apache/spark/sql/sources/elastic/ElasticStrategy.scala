@@ -1,7 +1,8 @@
 package org.apache.spark.sql.sources.elastic
 
+import org.apache.spark.sql.catalyst.elastic.plans.logical.Offset
 import org.apache.spark.sql.catalyst.expressions.{Alias, AttributeReference, Cast, Divide, Expression, NamedExpression}
-import org.apache.spark.sql.catalyst.plans.logical.{LogicalPlan, Project}
+import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.execution._
 import org.apache.spark.sql.execution.datasources.LogicalRelation
 import org.apache.spark.sql.types.DoubleType
@@ -31,6 +32,9 @@ private[sql] class ElasticStrategy(planner: ElasticPlanner) extends Strategy
   private def searchPlan(eqb: ElasticQueryBuilder, lp: LogicalPlan): SparkPlan = {
     println("SparkPlan type :::::::::::::::::::::::::::; " + lp.getClass.getCanonicalName)
     lp match {
+      case ReturnAnswer(child) => searchPlan(eqb, child)
+      case Offset(_, child) => searchPlan(eqb, child)
+      case Limit(_, child) => searchPlan(eqb, child)
       case Project(projectList, _) => searchPlan(eqb, projectList)
       case LogicalRelation(_, output, _, _) => searchPlan(eqb, output)
       case _ => null
@@ -63,7 +67,9 @@ private[sql] class ElasticStrategy(planner: ElasticPlanner) extends Strategy
     val qrySpec: QuerySpec = SearchQuerySpec(planner.options.index,
       planner.options.`type`,
       columns,
-      eqb1.filterSpec)
+      eqb1.filterSpec,
+      eqb1.offsetSpec.map(_.from),
+      eqb1.limitSpec.map(_.size))
 
     val elasticQuery = ElasticQuery(qrySpec, Some(elasticSchema.elasticAttributes))
 

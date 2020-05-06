@@ -85,7 +85,12 @@ class ElasticRDD(sqlContext: SQLContext,
         println("TF :::::::::::::::::::::::: " + nameToTF)
         info.indexInfo.columns.get(field.name) match {
           case Some(ec) =>
-            ElasticValTransform.sparkValue(field, r.event(field.name),
+            val value = r.event.get(field.name) match {
+              case Some(v) => v
+              case _ if info.options.nullFillNonexistentFieldValue => null
+              case _ => throw new ElasticIndexException(s"${field.name} field not found.")
+            }
+            ElasticValTransform.sparkValue(field, value,
               nameToTF.get(field.name), info.options.timeZoneId,
               ec.dateTypeFormats,
               Some(info.options.dateTypeFormats))

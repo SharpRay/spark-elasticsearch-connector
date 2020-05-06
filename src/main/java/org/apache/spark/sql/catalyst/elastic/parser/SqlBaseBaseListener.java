@@ -1,6 +1,5 @@
-package org.apache.spark.sql.catalyst.parser;
-
 // Generated from SqlBase.g4 by ANTLR 4.8
+package org.apache.spark.sql.catalyst.elastic.parser;
 
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.tree.ErrorNode;

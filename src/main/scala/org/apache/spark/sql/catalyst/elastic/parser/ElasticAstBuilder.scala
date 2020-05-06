@@ -15,18 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.spark.sql.catalyst.parser
+package org.apache.spark.sql.catalyst.elastic.parser
 
 import java.sql.{Date, Timestamp}
 import java.util.Locale
+
 import javax.xml.bind.DatatypeConverter
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer
-
 import org.antlr.v4.runtime.{ParserRuleContext, Token}
 import org.antlr.v4.runtime.tree.{ParseTree, RuleNode, TerminalNode}
-
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.AnalysisException
 import org.apache.spark.sql.catalyst.{FunctionIdentifier, TableIdentifier}
@@ -34,7 +33,9 @@ import org.apache.spark.sql.catalyst.analysis._
 import org.apache.spark.sql.catalyst.catalog.CatalogStorageFormat
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.expressions.aggregate.{First, Last}
-import org.apache.spark.sql.catalyst.parser.SqlBaseParser._
+import org.apache.spark.sql.catalyst.elastic.parser.SqlBaseParser._
+import org.apache.spark.sql.catalyst.elastic.plans.logical.Offset
+import org.apache.spark.sql.catalyst.parser.ParseException
 import org.apache.spark.sql.catalyst.plans._
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.internal.SQLConf
@@ -47,7 +48,7 @@ import org.apache.spark.util.random.RandomSampler
  * TableIdentifier.
  */
 class ElasticAstBuilder(conf: SQLConf) extends SqlBaseBaseVisitor[AnyRef] with Logging {
-  import ParserUtils._
+  import org.apache.spark.sql.catalyst.parser.ParserUtils._
 
   def this() = this(new SQLConf())
 
@@ -346,13 +347,16 @@ class ElasticAstBuilder(conf: SQLConf) extends SqlBaseBaseVisitor[AnyRef] with L
         "Combination of ORDER BY/SORT BY/DISTRIBUTE BY/CLUSTER BY is not supported", ctx)
     }
 
-    // WINDOWS
-    val withWindow = withOrder.optionalMap(windows)(withWindows)
+    var withWindow = withOrder.optionalMap(windows)(withWindows)
 
     // LIMIT
     // - LIMIT ALL is the same as omitting the LIMIT clause
-    withWindow.optional(limit) {
+    withWindow = withWindow.optional(limit) {
       Limit(typedVisit(limit), withWindow)
+    }
+    // OFFSET
+    withWindow.optional(offset) {
+      Offset(typedVisit(offset), withWindow)
     }
   }
 

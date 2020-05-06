@@ -42,6 +42,9 @@ class DefaultSource extends RelationProvider with MyLogging {
     val dateTypeFormats: Seq[String] = parameters.getOrElse(DATE_TYPE_FORMAT, DEFAULT_DATE_TYPE_FORMAT)
       .split("\\|\\|").toSeq
 
+    val nullFillNonexistentFieldValue = parameters.getOrElse(NULL_FILL_NONEXISTENT_FIELD_VALUE,
+      DEFAULT_NULL_FILL_NONEXISTENT_FIELD_VALUE).toBoolean
+
     val elasticOptions = ElasticOptions(host,
       index,
       `type`,
@@ -51,7 +54,8 @@ class DefaultSource extends RelationProvider with MyLogging {
       skipUnknownTypeFields,
       debugTransformations,
       timeZoneId,
-      dateTypeFormats)
+      dateTypeFormats,
+      nullFillNonexistentFieldValue)
 
     val elasticRelationInfo = ElasticMetadataCache.elasticRelation(elasticOptions)
 
@@ -132,4 +136,7 @@ object DefaultSource {
 
   val DATE_TYPE_FORMAT = "dateTypeFormat"
   val DEFAULT_DATE_TYPE_FORMAT = "strict_date_optional_time||epoch_millis"
+
+  val NULL_FILL_NONEXISTENT_FIELD_VALUE = "nullFillNonexistentFieldValue"
+  val DEFAULT_NULL_FILL_NONEXISTENT_FIELD_VALUE = "false"
 }

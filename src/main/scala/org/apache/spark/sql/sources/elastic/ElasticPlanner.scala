@@ -7,11 +7,12 @@ import org.rzlabs.elastic.client.ConnectionManager
 import org.rzlabs.elastic.metadata.ElasticOptions
 
 class ElasticPlanner(val sqlContext: SQLContext, val options: ElasticOptions)
-  extends ElasticTransforms with ProjectFilterTransform {
+  extends ElasticTransforms with ProjectFilterTransform with LimitTransform with OffsetTransform {
 
   val transforms: Seq[ElasticTransform] = Seq(
-    elasticRelationTransform.debug("elasticRelationTransform") or
-    limitTransform.debug("limit")
+    elasticRelationTransform.debug("elasticRelationTransform"),
+    limitTransform.debug("limit"),
+    offsetTransform.debug("offset")
 
   )
 

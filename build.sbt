@@ -3,9 +3,11 @@ val jodaVersion = "2.10.5"
 val jacksonVersion = "2.10.3"
 val apacheHttpVersion = "4.5.11"
 
+val excludeBaseSqlParserBinding = ExclusionRule(organization = "org.apache.spark.sql.catalyst.parser")
+
 val myDependencies = Seq(
-  "org.apache.spark" %% "spark-core" % sparkVersion % "provided",
-  "org.apache.spark" %% "spark-sql" % sparkVersion % "provided",
+  "org.apache.spark" %% "spark-core" % sparkVersion % "provided" excludeAll(excludeBaseSqlParserBinding),
+  "org.apache.spark" %% "spark-sql" % sparkVersion % "provided" excludeAll(excludeBaseSqlParserBinding),
   "joda-time" % "joda-time" % jodaVersion,
   "com.fasterxml.jackson.core" % "jackson-core" % jacksonVersion,
   "com.fasterxml.jackson.core" % "jackson-annotations" % jacksonVersion,

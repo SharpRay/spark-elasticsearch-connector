@@ -27,6 +27,13 @@ trait LimitTransform {
       // TODO: handle the Aggregate expression.
       Nil
     case (eqb, sort @ Limit(limitExpr, child: Sort)) =>
+      // TODO: handle the Sort expression.
+      val eqbs = plan(eqb, child).map { eqb =>
+        val amt = limitExpr.eval(null).asInstanceOf[Int]
+        eqb.limit(amt)
+      }
+      Utils.sequence(eqbs.toList).getOrElse(Nil)
+    case (eqb, limit @ Limit(limitExpr, child)) =>
       val eqbs = plan(eqb, child).map { eqb =>
         val amt = limitExpr.eval(null).asInstanceOf[Int]
         eqb.limit(amt)
@@ -34,8 +41,9 @@ trait LimitTransform {
       Utils.sequence(eqbs.toList).getOrElse(Nil)
     case (eqb, sort @ Limit(limitExpr, Project(projections,
       child @ Sort(_, _, aggChild: Aggregate)))) =>
-      // TODO
+      // TODO: handle the Aggregate expression.
       Nil
     case _ => Nil
   }
 }
+

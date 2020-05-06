@@ -13,6 +13,7 @@ case class ElasticQueryBuilder(relationInfo: ElasticRelationInfo,
 //                               queryIntervals: QueryIntervals,
                                referenceElasticColumns: MMap[String, ElasticRelationColumn] = MMap(),
                                limitSpec: Option[LimitSpec] = None,
+                               offsetSpec: Option[OffsetSpec] = None,
                                filterSpec: Option[FilterSpec] = None,
                                projectionAliasMap: Map[String, String] = Map(),
                                outputAttributeMap: Map[String, (Expression, DataType, DataType, String)] = Map(),
@@ -74,11 +75,13 @@ case class ElasticQueryBuilder(relationInfo: ElasticRelationInfo,
     this.copy(limitSpec = Some(l))
   }
 
-  def limit(amt: Int): Option[ElasticQueryBuilder] = limitSpec match {
-    case Some(LimitSpec(l)) if l == Int.MaxValue || l == amt =>
-      Some(limit(LimitSpec(amt)))
-    case _ => None
+  def limit(amt: Int): Option[ElasticQueryBuilder] = Some(limit(LimitSpec(amt)))
+
+  def offset(o: OffsetSpec) = {
+    this.copy(offsetSpec = Some(o))
   }
+
+  def offset(amt: Int): Option[ElasticQueryBuilder] = Some(offset(OffsetSpec(amt)))
 }
 
 object ElasticQueryBuilder {

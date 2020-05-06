@@ -21,6 +21,8 @@ object OrderName extends Enumeration {
 
 case class LimitSpec(size: Int)
 
+case class OffsetSpec(from: Int)
+
 case class SortSpec(sort: Map[String, Map[OrderName.Value, Order.Value]])
 
 sealed trait QuerySpec extends Product {
@@ -46,7 +48,9 @@ sealed trait QuerySpec extends Product {
 case class SearchQuerySpec(index: String,
                            `type`: Option[String],
                            @JsonProperty("_source") columns: List[String],
-                           @JsonProperty("query") filter: Option[FilterSpec]) extends QuerySpec {
+                           @JsonProperty("query") filter: Option[FilterSpec],
+                           @JsonProperty("from") from: Option[Int],
+                           @JsonProperty("size") size: Option[Int]) extends QuerySpec {
 
   def toJSON(): String = {
     val objectMapper = new ObjectMapper()
