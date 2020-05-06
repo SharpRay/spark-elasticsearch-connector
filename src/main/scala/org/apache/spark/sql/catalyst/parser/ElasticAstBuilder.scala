@@ -46,7 +46,7 @@ import org.apache.spark.util.random.RandomSampler
  * The AstBuilder converts an ANTLR4 ParseTree into a catalyst Expression, LogicalPlan or
  * TableIdentifier.
  */
-class AstBuilder(conf: SQLConf) extends SqlBaseBaseVisitor[AnyRef] with Logging {
+class ElasticAstBuilder(conf: SQLConf) extends SqlBaseBaseVisitor[AnyRef] with Logging {
   import ParserUtils._
 
   def this() = this(new SQLConf())
@@ -353,10 +353,6 @@ class AstBuilder(conf: SQLConf) extends SqlBaseBaseVisitor[AnyRef] with Logging 
     // - LIMIT ALL is the same as omitting the LIMIT clause
     withWindow.optional(limit) {
       Limit(typedVisit(limit), withWindow)
-    }
-
-    withWindow.optional() {
-
     }
   }
 
