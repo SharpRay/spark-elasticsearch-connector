@@ -1112,6 +1112,8 @@ class ElasticAstBuilder(conf: SQLConf) extends SqlBaseBaseVisitor[AnyRef] with L
    * - (NOT) IN
    * - (NOT) LIKE
    * - (NOT) RLIKE
+   * - (NOT) MATCH
+   * - (NOT) MATCH_PHRASE
    * - IS (NOT) NULL.
    * - IS (NOT) DISTINCT FROM
    */

@@ -571,6 +571,7 @@ predicate
     | NOT? kind=IN '(' expression (',' expression)* ')'
     | NOT? kind=IN '(' query ')'
     | NOT? kind=(RLIKE | LIKE) pattern=valueExpression
+    | NOT? kind=(MATCH | MATCH_PHRASE) pattern=valueExpression
     | IS NOT? kind=NULL
     | IS NOT? kind=DISTINCT FROM right=valueExpression
     ;
@@ -771,7 +772,7 @@ nonReserved
     | ASC | DESC | LIMIT | RENAME | SETS | OFFSET
     | AT | NULLS | OVERWRITE | ALL | ANY | ALTER | AS | BETWEEN | BY | CREATE | DELETE
     | DESCRIBE | DROP | EXISTS | FALSE | FOR | GROUP | IN | INSERT | INTO | IS |LIKE
-    | NULL | ORDER | OUTER | TABLE | TRUE | WITH | RLIKE
+    | NULL | ORDER | OUTER | TABLE | TRUE | WITH | RLIKE | MATCH | MATCH_PHRASE
     | AND | CASE | CAST | DISTINCT | DIV | ELSE | END | FUNCTION | INTERVAL | MACRO | OR | STRATIFY | THEN
     | UNBOUNDED | WHEN
     | DATABASE | SELECT | FROM | WHERE | HAVING | TO | TABLE | WITH | NOT
@@ -807,6 +808,8 @@ EXISTS: 'EXISTS';
 BETWEEN: 'BETWEEN';
 LIKE: 'LIKE';
 RLIKE: 'RLIKE' | 'REGEXP';
+MATCH: 'MATCH';
+MATCH_PHRASE: 'MATCH_PHRASE';
 IS: 'IS';
 NULL: 'NULL';
 TRUE: 'TRUE';
