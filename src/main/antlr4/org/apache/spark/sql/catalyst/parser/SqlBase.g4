@@ -571,7 +571,7 @@ predicate
     | NOT? kind=IN '(' expression (',' expression)* ')'
     | NOT? kind=IN '(' query ')'
     | NOT? kind=(RLIKE | LIKE) pattern=valueExpression
-    | NOT? kind=(MATCH | MATCH_PHRASE) pattern=valueExpression
+    | NOT? kind=(MATCH | MATCH_PHRASE) right=valueExpression
     | IS NOT? kind=NULL
     | IS NOT? kind=DISTINCT FROM right=valueExpression
     ;

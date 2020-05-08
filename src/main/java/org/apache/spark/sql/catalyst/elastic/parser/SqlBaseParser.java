@@ -12402,7 +12402,7 @@ public class SqlBaseParser extends Parser {
 					consume();
 				}
 				setState(1989);
-				((PredicateContext)_localctx).pattern = valueExpression(0);
+				((PredicateContext)_localctx).right = valueExpression(0);
 				}
 				break;
 			case 6:

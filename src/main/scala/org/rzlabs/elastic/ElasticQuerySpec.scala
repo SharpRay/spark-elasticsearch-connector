@@ -124,6 +124,34 @@ object RangeFilterSpec {
   }
 }
 
+case class MatchFilterSpec(`match`: Map[String, Any]) extends FilterSpec
+
+object MatchFilterSpec {
+
+  def apply(ec: ElasticRelationColumn, name: String, value: Any) = ec.dataType match {
+    case ElasticDataType.Text =>
+      new MatchFilterSpec(
+        Map[String, Any](name -> value)
+      )
+    case _ =>
+      throw new ElasticIndexException("Only text field could use match predicate.")
+  }
+}
+
+case class MatchPhraseFilterSpec(match_phrase: Map[String, Any]) extends FilterSpec
+
+object MatchPhraseFilterSpec {
+
+  def apply(ec: ElasticRelationColumn, name: String, value: Any) = ec.dataType match {
+    case ElasticDataType.Text =>
+      new MatchPhraseFilterSpec(
+        Map[String, Any](name -> value)
+      )
+    case _ =>
+      throw new ElasticIndexException("Only text field could use match_phrase predicate.")
+  }
+}
+
 case class TermFilterSpec(term: Map[String, Any]) extends FilterSpec
 
 object TermFilterSpec {

@@ -31,6 +31,7 @@ import org.apache.spark.sql.AnalysisException
 import org.apache.spark.sql.catalyst.{FunctionIdentifier, TableIdentifier}
 import org.apache.spark.sql.catalyst.analysis._
 import org.apache.spark.sql.catalyst.catalog.CatalogStorageFormat
+import org.apache.spark.sql.catalyst.elastic.expressions.{Match, MatchPhrase}
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.expressions.aggregate.{First, Last}
 import org.apache.spark.sql.catalyst.elastic.parser.SqlBaseParser._
@@ -1144,6 +1145,10 @@ class ElasticAstBuilder(conf: SQLConf) extends SqlBaseBaseVisitor[AnyRef] with L
         invertIfNotDefined(Like(e, expression(ctx.pattern)))
       case SqlBaseParser.RLIKE =>
         invertIfNotDefined(RLike(e, expression(ctx.pattern)))
+      case SqlBaseParser.MATCH =>
+        invertIfNotDefined(Match(e, expression(ctx.right)))
+      case SqlBaseParser.MATCH_PHRASE =>
+        invertIfNotDefined(MatchPhrase(e, expression(ctx.right)))
       case SqlBaseParser.NULL if ctx.NOT != null =>
         IsNotNull(e)
       case SqlBaseParser.NULL =>

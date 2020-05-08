@@ -1,5 +1,6 @@
 package org.apache.spark.sql.sources.elastic
 
+import org.apache.spark.sql.catalyst.elastic.expressions.{Match, MatchPhrase}
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.planning.PhysicalOperation
 import org.apache.spark.sql.execution.datasources.LogicalRelation
@@ -118,11 +119,29 @@ trait ProjectFilterTransform {
       val ice = new SparkIntervalConditionExtractor(eqb)
       filter match {
         case ice(ic) => Some(RangeFilterSpec(ic))
+        case Match(AttributeReference(nm, dt, _, _), Literal(value, _))
+          if value .isInstanceOf[UTF8String] =>
+          for (ec <- eqb.elasticCoumn(nm)
+               if ElasticDataType.sparkDataType(ec.dataType) == dt)
+            yield MatchFilterSpec(ec, ec.column, value.toString)
+        case Match(AttributeReference(nm, dt, _, _), Literal(value, _)) =>
+          for (ec <- eqb.elasticCoumn(nm)
+               if ElasticDataType.sparkDataType(ec.dataType) == dt)
+            yield MatchFilterSpec(ec, ec.column, value);
+        case MatchPhrase(AttributeReference(nm, dt, _, _), Literal(value, _))
+          if value .isInstanceOf[UTF8String] =>
+          for (ec <- eqb.elasticCoumn(nm)
+               if ElasticDataType.sparkDataType(ec.dataType) == dt)
+            yield MatchPhraseFilterSpec(ec, ec.column, value.toString)
+        case MatchPhrase(AttributeReference(nm, dt, _, _), Literal(value, _)) =>
+          for (ec <- eqb.elasticCoumn(nm)
+               if ElasticDataType.sparkDataType(ec.dataType) == dt)
+            yield MatchPhraseFilterSpec(ec, ec.column, value);
         case EqualTo(AttributeReference(nm, dt, _, _), Literal(value, _))
           if value.isInstanceOf[UTF8String] =>
           for (ec <- eqb.elasticCoumn(nm)
                if ElasticDataType.sparkDataType(ec.dataType) == dt)
-            yield TermFilterSpec(ec, ec.column, value.toString);
+            yield TermFilterSpec(ec, ec.column, value.toString)
         case EqualTo(AttributeReference(nm, dt, _, _), Literal(value, _)) =>
           for (ec <- eqb.elasticCoumn(nm)
                if ElasticDataType.sparkDataType(ec.dataType) == dt)
