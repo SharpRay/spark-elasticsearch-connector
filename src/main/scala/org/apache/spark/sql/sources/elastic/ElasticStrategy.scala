@@ -30,9 +30,9 @@ private[sql] class ElasticStrategy(planner: ElasticPlanner) extends Strategy
   }
 
   private def searchPlan(eqb: ElasticQueryBuilder, lp: LogicalPlan): SparkPlan = {
-    println("SparkPlan type :::::::::::::::::::::::::::; " + lp.getClass.getCanonicalName)
     lp match {
       case ReturnAnswer(child) => searchPlan(eqb, child)
+      case Sort(_, _, child) => searchPlan(eqb, child)
       case Offset(_, child) => searchPlan(eqb, child)
       case Limit(_, child) => searchPlan(eqb, child)
       case Project(projectList, _) => searchPlan(eqb, projectList)
@@ -69,7 +69,8 @@ private[sql] class ElasticStrategy(planner: ElasticPlanner) extends Strategy
       columns,
       eqb1.filterSpec,
       eqb1.offsetSpec.map(_.from),
-      eqb1.limitSpec.map(_.size))
+      eqb1.limitSpec.map(_.size),
+      eqb1.sortSpec.map(_.sort))
 
     val elasticQuery = ElasticQuery(qrySpec, Some(elasticSchema.elasticAttributes))
 

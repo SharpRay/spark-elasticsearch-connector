@@ -13,6 +13,7 @@ case class ElasticQueryBuilder(relationInfo: ElasticRelationInfo,
 //                               queryIntervals: QueryIntervals,
                                referenceElasticColumns: MMap[String, ElasticRelationColumn] = MMap(),
                                limitSpec: Option[LimitSpec] = None,
+                               sortSpec: Option[SortSpec] = None,
                                offsetSpec: Option[OffsetSpec] = None,
                                filterSpec: Option[FilterSpec] = None,
                                projectionAliasMap: Map[String, String] = Map(),
@@ -59,8 +60,10 @@ case class ElasticQueryBuilder(relationInfo: ElasticRelationInfo,
 
   def filterSpecification(f: FilterSpec) = (filterSpec, f) match {
     case (Some(fs), _) =>
-      this.copy(filterSpec =
-        Some(BoolExpressionFilterSpec(ConjExpressionFilterSpec(must = List(f, fs)))))
+      //this.copy(filterSpec =
+      //  Some(BoolExpressionFilterSpec(ConjExpressionFilterSpec(must = List(f, fs)))))
+      this.copy(filterSpec = Some(BoolExpressionFilterSpec(
+        ConjExpressionFilterSpec(mustOpt = Some(List(f, fs)), mustNotOpt = None, shouldOpt = None, filterOpt = None))))
     case (None, _) =>
       this.copy(filterSpec = Some(f))
   }
@@ -82,6 +85,19 @@ case class ElasticQueryBuilder(relationInfo: ElasticRelationInfo,
   }
 
   def offset(amt: Int): Option[ElasticQueryBuilder] = Some(offset(OffsetSpec(amt)))
+
+  def orderBy(s: SortSpec) = {
+    this.copy(sortSpec = Some(s))
+  }
+
+  def orderBy(name: String, order: Order.Value): Option[ElasticQueryBuilder] = elasticCoumn(name) match {
+    case Some(ec) => sortSpec match {
+      case None => Some(orderBy(SortSpec(ec, name, order)))
+      case _ => Some(orderBy(sortSpec.get + SortSpec(ec, name, order)))
+    }
+    case None => throw new ElasticIndexException("Unknown field.")
+
+  }
 }
 
 object ElasticQueryBuilder {

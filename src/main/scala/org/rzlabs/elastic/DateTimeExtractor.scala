@@ -162,7 +162,7 @@ class SparkIntervalConditionExtractor(eqb: ElasticQueryBuilder) {
 
   private def literalToDateTime(value: Any, dataType: DataType): DateTime = dataType match {
     case TimestampType =>
-      // Timetamp Literal's value accurate to micro second
+      // Timestamp Literal's value accurate to micro second
       new DateTime(value.toString.toLong / 1000,
         DateTimeZone.forID(eqb.relationInfo.options.timeZoneId))
     case DateType =>

@@ -81,8 +81,6 @@ class ElasticRDD(sqlContext: SQLContext,
     rIter.map { r =>
       numRows += 1
       val row = new GenericInternalRow(schema.fields.map { field =>
-        println("FIELD :::::::::::::::::: " + field)
-        println("TF :::::::::::::::::::::::: " + nameToTF)
         info.indexInfo.columns.get(field.name) match {
           case Some(ec) =>
             val value = r.event.get(field.name) match {

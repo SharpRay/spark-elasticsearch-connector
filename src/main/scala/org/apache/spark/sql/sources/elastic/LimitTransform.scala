@@ -1,7 +1,8 @@
 package org.apache.spark.sql.sources.elastic
 
+import org.apache.spark.sql.catalyst.expressions.{Ascending, AttributeReference, Descending, SortOrder}
 import org.apache.spark.sql.catalyst.plans.logical._
-import org.rzlabs.elastic.Utils
+import org.rzlabs.elastic.{ElasticQueryBuilder, Order, Utils}
 
 trait LimitTransform {
   self: ElasticPlanner =>
@@ -22,7 +23,19 @@ trait LimitTransform {
      * if we don't handle it here it gets transformed by the
      * [[org.apache.spark.sql.execution.SparkStrategies.SpecialLimits]] strategy.
      */
-    case (eq, ReturnAnswer(child)) => limitTransform(eq, child)
+    case (eqb, ReturnAnswer(child)) => limitTransform(eqb, child)
+    case (eqb, sort @ Sort(orderExprs, global, child: Project)) =>
+      val eqbs = plan(eqb, child).map { eqb =>
+        orderExprs.foldLeft(Some(eqb).asInstanceOf[Option[ElasticQueryBuilder]]) {
+          case (Some(eqb1), SortOrder(AttributeReference(nm, dt, _, _), direction, _, _)) =>
+            direction match {
+              case Ascending => eqb1.orderBy(nm, Order.ASC)
+              case Descending => eqb1.orderBy(nm, Order.DESC)
+            }
+          case (oeqb, _) => oeqb
+        }
+      }
+      Utils.sequence(eqbs.toList).getOrElse(Nil)
     case (eqb, sort @ Sort(orderExprs, global, child: Aggregate)) =>
       // TODO: handle the Aggregate expression.
       Nil

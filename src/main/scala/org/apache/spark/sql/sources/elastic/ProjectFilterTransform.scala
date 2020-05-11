@@ -57,12 +57,16 @@ trait ProjectFilterTransform {
           Utils.sequence(
             List(columnFilterExpression(eqb, ice, e1),
               columnFilterExpression(eqb, ice, e2))).map(specs =>
-            BoolExpressionFilterSpec(ConjExpressionFilterSpec(should = specs)))
+            //BoolExpressionFilterSpec(ConjExpressionFilterSpec(should = specs)))
+            BoolExpressionFilterSpec(ConjExpressionFilterSpec(
+              mustOpt = None, mustNotOpt = None, shouldOpt = Some(specs), filterOpt = None)))
         case And(e1, e2) =>
           Utils.sequence(
             List(columnFilterExpression(eqb, ice, e1),
               columnFilterExpression(eqb, ice, e2))).map(specs =>
-            BoolExpressionFilterSpec(ConjExpressionFilterSpec(must = specs)))
+            //BoolExpressionFilterSpec(ConjExpressionFilterSpec(must = specs)))
+            BoolExpressionFilterSpec(ConjExpressionFilterSpec(
+              mustOpt = Some(specs), mustNotOpt = None, shouldOpt = None, filterOpt = None)))
         case In(AttributeReference(nm, _, _, _), vals: Seq[Expression]) =>
           for (ec <- eqb.elasticCoumn(nm)
                if vals.forall(_.isInstanceOf[Literal]))
@@ -75,11 +79,15 @@ trait ProjectFilterTransform {
             yield new ExistsFilterSpec(ec.column)
         case IsNull(AttributeReference(nm, _, _, _)) =>
           for (ec <- eqb.elasticCoumn(nm))
-            yield BoolExpressionFilterSpec(
-              ConjExpressionFilterSpec(mustNot = List(new ExistsFilterSpec(ec.column))))
+            //yield BoolExpressionFilterSpec(
+            //  ConjExpressionFilterSpec(mustNot = List(new ExistsFilterSpec(ec.column))))
+            yield BoolExpressionFilterSpec(ConjExpressionFilterSpec(
+              mustOpt = None, mustNotOpt = Some(List(new ExistsFilterSpec(ec.column))), shouldOpt = None, filterOpt = None))
         case Not(e) =>
           for (spec <- columnFilterExpression(eqb, ice, e))
-            yield BoolExpressionFilterSpec(ConjExpressionFilterSpec(mustNot = List(spec)))
+            //yield BoolExpressionFilterSpec(ConjExpressionFilterSpec(mustNot = List(spec)))
+            yield BoolExpressionFilterSpec(ConjExpressionFilterSpec(
+              mustOpt = None, mustNotOpt = Some(List(spec)), shouldOpt = None, filterOpt = None))
         // TODO: What is NULL SCAN ???
         case Literal(null, _) => None
         // TODO: GroovyGenerator
@@ -112,7 +120,6 @@ trait ProjectFilterTransform {
 
   object ValidElasticNativeComparison {
 
-
     def unapply(t: (ElasticQueryBuilder, Expression)): Option[FilterSpec] = {
       val eqb = t._1
       val filter = t._2
@@ -127,7 +134,7 @@ trait ProjectFilterTransform {
         case Match(AttributeReference(nm, dt, _, _), Literal(value, _)) =>
           for (ec <- eqb.elasticCoumn(nm)
                if ElasticDataType.sparkDataType(ec.dataType) == dt)
-            yield MatchFilterSpec(ec, ec.column, value);
+            yield MatchFilterSpec(ec, ec.column, value)
         case MatchPhrase(AttributeReference(nm, dt, _, _), Literal(value, _))
           if value .isInstanceOf[UTF8String] =>
           for (ec <- eqb.elasticCoumn(nm)
@@ -136,7 +143,32 @@ trait ProjectFilterTransform {
         case MatchPhrase(AttributeReference(nm, dt, _, _), Literal(value, _)) =>
           for (ec <- eqb.elasticCoumn(nm)
                if ElasticDataType.sparkDataType(ec.dataType) == dt)
-            yield MatchPhraseFilterSpec(ec, ec.column, value);
+            yield MatchPhraseFilterSpec(ec, ec.column, value)
+        case Like(AttributeReference(nm, dt, _, _), Literal(value, _))
+          if value.isInstanceOf[UTF8String] =>
+          for (ec <- eqb.elasticCoumn(nm)
+               if ElasticDataType.sparkDataType(ec.dataType) == dt)
+            yield WildcardFilterSpec(ec, ec.column, value.toString)
+        case StartsWith(AttributeReference(nm, dt, _, _), Literal(value, _))
+          if value.isInstanceOf[UTF8String] =>
+          for (ec <- eqb.elasticCoumn(nm)
+               if ElasticDataType.sparkDataType(ec.dataType) == dt)
+            yield WildcardFilterSpec(ec, ec.column, s"${value.toString}*")
+        case EndsWith(AttributeReference(nm, dt, _, _), Literal(value, _))
+          if value.isInstanceOf[UTF8String] =>
+          for (ec <- eqb.elasticCoumn(nm)
+               if ElasticDataType.sparkDataType(ec.dataType) == dt)
+            yield WildcardFilterSpec(ec, ec.column, s"*${value.toString}")
+        case Contains(AttributeReference(nm, dt, _, _), Literal(value, _))
+          if value.isInstanceOf[UTF8String] =>
+          for (ec <- eqb.elasticCoumn(nm)
+               if ElasticDataType.sparkDataType(ec.dataType) == dt)
+            yield WildcardFilterSpec(ec, ec.column, s"*${value.toString}*")
+        case RLike(AttributeReference(nm, dt, _, _), Literal(value, _))
+          if value.isInstanceOf[UTF8String] =>
+          for (ec <- eqb.elasticCoumn(nm)
+               if ElasticDataType.sparkDataType(ec.dataType) == dt)
+            yield RegexpFilterSpec(ec, ec.column, value.toString)
         case EqualTo(AttributeReference(nm, dt, _, _), Literal(value, _))
           if value.isInstanceOf[UTF8String] =>
           for (ec <- eqb.elasticCoumn(nm)

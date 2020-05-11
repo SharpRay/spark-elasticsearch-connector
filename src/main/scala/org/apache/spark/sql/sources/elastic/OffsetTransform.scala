@@ -10,10 +10,8 @@ trait OffsetTransform {
   val offsetTransform: ElasticTransform = {
     case (eqb, ReturnAnswer(child)) => offsetTransform(eqb, child)
     case (eqb, offset @ Offset(offsetExpr, child)) =>
-      println("child ======================= " + child)
       val eqbs = plan(eqb, child).map { eqb =>
         val offset = offsetExpr.eval(null).asInstanceOf[Int]
-        println("offset =================== " + offset)
         eqb.offset(offset)
       }
       Utils.sequence(eqbs.toList).getOrElse(Nil)

@@ -15,15 +15,29 @@ object Order extends Enumeration {
   val DESC = Value("DESC")
 }
 
-object OrderName extends Enumeration {
-  val order = Value("ORDER")
-}
-
 case class LimitSpec(size: Int)
 
 case class OffsetSpec(from: Int)
 
-case class SortSpec(sort: Map[String, Map[OrderName.Value, Order.Value]])
+case class SortSpec(sort: Map[String, String]) {
+
+  def +(spec: SortSpec) = {
+    SortSpec(sort ++ spec.sort)
+  }
+}
+
+object SortSpec {
+
+  def apply(ec: ElasticRelationColumn, name: String, order: Order.Value) = ec.dataType match {
+    case ElasticDataType.Text if ec.keywordField.isDefined =>
+      new SortSpec(
+        Map(s"$name.${ec.keywordField.get}" -> order.toString))
+    case _ =>
+      new SortSpec(
+        Map(name -> order.toString)
+      )
+  }
+}
 
 sealed trait QuerySpec extends Product {
 
@@ -49,8 +63,9 @@ case class SearchQuerySpec(index: String,
                            `type`: Option[String],
                            @JsonProperty("_source") columns: List[String],
                            @JsonProperty("query") filter: Option[FilterSpec],
-                           @JsonProperty("from") from: Option[Int],
-                           @JsonProperty("size") size: Option[Int]) extends QuerySpec {
+                           from: Option[Int],
+                           size: Option[Int],
+                           sort: Option[Map[String, String]]) extends QuerySpec {
 
   def toJSON(): String = {
     val objectMapper = new ObjectMapper()
@@ -152,6 +167,40 @@ object MatchPhraseFilterSpec {
   }
 }
 
+case class WildcardFilterSpec(wildcard: Map[String, Any]) extends FilterSpec
+
+object WildcardFilterSpec {
+
+  def apply(ec: ElasticRelationColumn, name: String, value: String) = ec.dataType match {
+    case ElasticDataType.Text if ec.keywordField.isDefined =>
+      new WildcardFilterSpec(
+        Map[String, Any](s"$name.${ec.keywordField.get}" -> value))
+    case ElasticDataType.Unknown =>
+      throw new ElasticIndexException(s"'$name' column is type-unknown.")
+    case _ =>
+      new WildcardFilterSpec(
+        Map[String, Any](name -> value)
+      )
+  }
+}
+
+case class RegexpFilterSpec(regexp: Map[String, Any]) extends FilterSpec
+
+object RegexpFilterSpec {
+
+  def apply(ec: ElasticRelationColumn, name: String, value: Any) = ec.dataType match {
+    case ElasticDataType.Text if ec.keywordField.isDefined =>
+      new RegexpFilterSpec(
+        Map[String, Any](s"$name.${ec.keywordField.get}" -> value))
+    case ElasticDataType.Unknown =>
+      throw new ElasticIndexException(s"'$name' column is type-unknown.")
+    case _ =>
+      new RegexpFilterSpec(
+        Map[String, Any](name -> value)
+      )
+  }
+}
+
 case class TermFilterSpec(term: Map[String, Any]) extends FilterSpec
 
 object TermFilterSpec {
@@ -241,6 +290,44 @@ object ColumnComparisonFilterSpec {
 case class ConjExpressionFilterSpec(must: List[FilterSpec] = null,
                                    @JsonProperty("must_not") mustNot: List[FilterSpec] = null,
                                    should: List[FilterSpec] = null,
-                                   filter: List[FilterSpec] = null)
+                                   filter: List[FilterSpec] = null) extends FilterSpec
+
+object ConjExpressionFilterSpec {
+
+  def apply(mustOpt: Option[List[FilterSpec]],
+            mustNotOpt: Option[List[FilterSpec]],
+            shouldOpt: Option[List[FilterSpec]],
+            filterOpt: Option[List[FilterSpec]]) = {
+    new ConjExpressionFilterSpec(
+      must = mustOpt.map(_.flatMap {
+        case filterSpec if filterSpec.isInstanceOf[BoolExpressionFilterSpec] &&
+          filterSpec.asInstanceOf[BoolExpressionFilterSpec].bool.must != null =>
+          filterSpec.asInstanceOf[BoolExpressionFilterSpec].bool.must
+        case filterSpec => Seq(filterSpec)
+      }).getOrElse(null),
+
+      mustNot = mustNotOpt.map(_.flatMap {
+        case filterSpec if filterSpec.isInstanceOf[BoolExpressionFilterSpec] &&
+          filterSpec.asInstanceOf[BoolExpressionFilterSpec].bool.mustNot != null =>
+          filterSpec.asInstanceOf[BoolExpressionFilterSpec].bool.mustNot
+        case filterSpec => Seq(filterSpec)
+      }).getOrElse(null),
+
+      should = shouldOpt.map(_.flatMap {
+        case filterSpec if filterSpec.isInstanceOf[BoolExpressionFilterSpec] &&
+          filterSpec.asInstanceOf[BoolExpressionFilterSpec].bool.should != null =>
+          filterSpec.asInstanceOf[BoolExpressionFilterSpec].bool.should
+        case filterSpec => Seq(filterSpec)
+      }).getOrElse(null),
+
+      filter = filterOpt.map(_.flatMap {
+        case filterSpec if filterSpec.isInstanceOf[BoolExpressionFilterSpec] &&
+          filterSpec.asInstanceOf[BoolExpressionFilterSpec].bool.filter != null =>
+          filterSpec.asInstanceOf[BoolExpressionFilterSpec].bool.filter
+        case filterSpec => Seq(filterSpec)
+      }).getOrElse(null)
+    )
+  }
+}
 
 case class BoolExpressionFilterSpec(bool: ConjExpressionFilterSpec) extends FilterSpec

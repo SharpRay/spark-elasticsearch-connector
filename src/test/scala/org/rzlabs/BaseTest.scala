@@ -6,7 +6,7 @@ import spray.json._
 
 class BaseTest extends AnyFunSuite {
 
-  val spec = SearchQuerySpec("abc", Some("123"), List("abc"), None, None, None)
+  val spec = SearchQuerySpec("abc", Some("123"), List("abc"), None, None, None, None)
 
   test("convert to JSON") {
     assert(spec.toJSON().parseJson ==
