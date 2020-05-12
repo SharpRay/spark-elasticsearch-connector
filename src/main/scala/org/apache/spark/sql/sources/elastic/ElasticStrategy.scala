@@ -11,7 +11,7 @@ import org.apache.spark.sql.{MyLogging, Strategy}
 import org.rzlabs.elastic._
 import org.rzlabs.elasticsearch.{ElasticAttribute, ElasticQuery, ElasticRelation}
 
-private[sql] class ElasticStrategy(planner: ElasticPlanner) extends Strategy
+private[sql] class ElasticStrategy(val planner: ElasticPlanner) extends Strategy
   with MyLogging {
 
   override def apply(lp: LogicalPlan): Seq[SparkPlan] = {
@@ -64,12 +64,21 @@ private[sql] class ElasticStrategy(planner: ElasticPlanner) extends Strategy
 
     val columns = eqb1.referenceElasticColumns.values.map(_.column).toList
 
-    val qrySpec: QuerySpec = SearchQuerySpec(planner.options.index,
-      planner.options.`type`,
+//    val qrySpec: QuerySpec = SearchQuerySpec(planner.options.index,
+//      planner.options.`type`,
+//      columns,
+//      eqb1.filterSpec,
+//      eqb1.offsetSpec.map(_.from),
+//      eqb1.limitSpec.map(_.size),
+//      eqb1.sortSpec.map(_.sort))
+
+    val qrySpec: QuerySpec = SearchQuerySpec(
+      eqb1.relationInfo.options.index,
+      eqb1.relationInfo.options.`type`,
       columns,
       eqb1.filterSpec,
       eqb1.offsetSpec.map(_.from),
-      eqb1.limitSpec.map(_.size),
+      Some(eqb1.limitSpec.map(_.size).getOrElse(eqb1.relationInfo.options.defaultLimit)),
       eqb1.sortSpec.map(_.sort))
 
     val elasticQuery = ElasticQuery(qrySpec, Some(elasticSchema.elasticAttributes))

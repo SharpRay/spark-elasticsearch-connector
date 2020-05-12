@@ -12,7 +12,8 @@ case class ElasticOptions(host: String,
                           debugTransformations: Boolean,
                           timeZoneId: String,
                           dateTypeFormats: Seq[String],
-                          nullFillNonexistentFieldValue: Boolean)
+                          nullFillNonexistentFieldValue: Boolean,
+                          defaultLimit: Int)
 
 case class ElasticRelationInfo(name: String,
                                indexInfo: ElasticIndex,

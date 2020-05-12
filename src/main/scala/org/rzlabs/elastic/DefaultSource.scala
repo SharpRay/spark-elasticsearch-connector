@@ -45,6 +45,8 @@ class DefaultSource extends RelationProvider with MyLogging {
     val nullFillNonexistentFieldValue = parameters.getOrElse(NULL_FILL_NONEXISTENT_FIELD_VALUE,
       DEFAULT_NULL_FILL_NONEXISTENT_FIELD_VALUE).toBoolean
 
+    val defaultLimit = parameters.getOrElse(DEFAULT_LIMIT, DEFAULT_DEFAULT_LIMIT).toInt
+
     val elasticOptions = ElasticOptions(host,
       index,
       `type`,
@@ -55,7 +57,8 @@ class DefaultSource extends RelationProvider with MyLogging {
       debugTransformations,
       timeZoneId,
       dateTypeFormats,
-      nullFillNonexistentFieldValue)
+      nullFillNonexistentFieldValue,
+      defaultLimit)
 
     val elasticRelationInfo = ElasticMetadataCache.elasticRelation(elasticOptions)
 
@@ -90,10 +93,10 @@ class DefaultSource extends RelationProvider with MyLogging {
    */
   private def addPhysicalRules(sqlContext: SQLContext, options: ElasticOptions) = {
     rulesLock.synchronized {
-      if (!physicalRUlesAdded) {
+      if (!physicalRulesAdded) {
         sqlContext.sparkSession.experimental.extraStrategies ++=
           ElasticBaseModule.physicalRules(sqlContext, options)
-        physicalRUlesAdded = true
+        physicalRulesAdded = true
       }
     }
   }
@@ -104,7 +107,7 @@ object DefaultSource {
 
   private val rulesLock = new Object
 
-  private var physicalRUlesAdded = false
+  private var physicalRulesAdded = false
 
   val ELASTIC_HOST = "host"
   val ELASTIC_INDEX = "index"
@@ -128,7 +131,7 @@ object DefaultSource {
   val SKIP_UNKNOWN_TYPE_FIELDS = "skipUnknownTypeFields"
   val DEFAULT_SKIP_UNKNOWN_TYPE_FIELDS = "false"
 
-  val DEBUG_TRANSFORMATIONS = "debuTransformations"
+  val DEBUG_TRANSFORMATIONS = "debugTransformations"
   val DEFAULT_DEBUG_TRANSFORMATIONS = "false"
 
   val TIME_ZONE_ID = "timeZoneId"
@@ -139,4 +142,7 @@ object DefaultSource {
 
   val NULL_FILL_NONEXISTENT_FIELD_VALUE = "nullFillNonexistentFieldValue"
   val DEFAULT_NULL_FILL_NONEXISTENT_FIELD_VALUE = "false"
+
+  val DEFAULT_LIMIT = "defaultLimit"
+  val DEFAULT_DEFAULT_LIMIT = "10000"
 }

@@ -45,7 +45,10 @@ class ElasticRDD(sqlContext: SQLContext,
 
   override def compute(split: Partition, context: TaskContext): Iterator[InternalRow] = {
     val partition = split.asInstanceOf[ElasticPartition]
-    val qrySpec = elasticQuery.qrySpec
+    val qrySpec = elasticQuery.qrySpec match {
+      case spec: SearchQuerySpec => spec
+      case _ => throw new ElasticIndexException("Just SearchQuerySpec is supported for now.")
+    }
 
     var cancelCallback: TaskCancelHandler.TaskCancelHolder = null
     var resultIter: CloseableIterator[ResultRow] = null
