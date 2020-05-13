@@ -1,6 +1,5 @@
 package org.rzlabs.elastic
 
-import org.apache.spark.sql.rzlabs.ElasticBaseModule
 import org.apache.spark.sql.{MyLogging, SQLContext}
 import org.apache.spark.sql.sources.{BaseRelation, RelationProvider}
 import org.rzlabs.elastic.metadata.{ElasticMetadataCache, ElasticOptions}
@@ -64,7 +63,7 @@ class DefaultSource extends RelationProvider with MyLogging {
 
     val elasticRelation = ElasticRelation(elasticRelationInfo, None)(sqlContext)
 
-    addPhysicalRules(sqlContext, elasticOptions)
+//    addPhysicalRules(sqlContext, elasticOptions)
 
     elasticRelation
   }
@@ -91,15 +90,15 @@ class DefaultSource extends RelationProvider with MyLogging {
    * @param sqlContext
    * @param options
    */
-  private def addPhysicalRules(sqlContext: SQLContext, options: ElasticOptions) = {
-    rulesLock.synchronized {
-      if (!physicalRulesAdded) {
-        sqlContext.sparkSession.experimental.extraStrategies ++=
-          ElasticBaseModule.physicalRules(sqlContext, options)
-        physicalRulesAdded = true
-      }
-    }
-  }
+//  private def addPhysicalRules(sqlContext: SQLContext, options: ElasticOptions) = {
+//    rulesLock.synchronized {
+//      if (!physicalRulesAdded) {
+//        sqlContext.sparkSession.experimental.extraStrategies ++=
+//          ElasticBaseModule.physicalRules(sqlContext, options)
+//        physicalRulesAdded = true
+//      }
+//    }
+//  }
 
 }
 

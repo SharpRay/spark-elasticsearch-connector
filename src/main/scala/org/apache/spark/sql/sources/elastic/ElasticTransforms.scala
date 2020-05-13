@@ -28,7 +28,7 @@ abstract class ElasticTransforms extends MyLogging with ProjectFilterTransform w
       val eqb = p._1
       val lp = p._2
       val reqb = t((eqb, lp))
-      if (self.options.debugTransformations) {
+      if (reqb.exists(_.relationInfo.options.debugTransformations)) {
         logInfo(s"$transformName transform invoked:\n" +
           s"Input ElasticQueryBuilders: $eqb\n" +
           s"Input LogicalPlan: $lp\n" +
@@ -53,9 +53,5 @@ abstract class ElasticTransforms extends MyLogging with ProjectFilterTransform w
    */
   implicit def transformToHolder(t: ElasticTransform) = TransformHolder(t)
 
-  def debugTransform(msg: => String): Unit = {
-    if (self.options.debugTransformations) {
-      logInfo(msg)
-    }
-  }
+  def debugTransform(msg: => String): Unit = logInfo(msg)
 }

@@ -3,10 +3,8 @@ package org.apache.spark.sql.sources.elastic
 import org.apache.spark.sql.SQLContext
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.rzlabs.elastic.ElasticQueryBuilder
-import org.rzlabs.elastic.client.ConnectionManager
-import org.rzlabs.elastic.metadata.ElasticOptions
 
-class ElasticPlanner(val sqlContext: SQLContext, val options: ElasticOptions)
+class ElasticPlanner(val sqlContext: SQLContext)
   extends ElasticTransforms with ProjectFilterTransform with LimitTransform with OffsetTransform {
 
   val transforms: Seq[ElasticTransform] = Seq(
@@ -22,9 +20,8 @@ class ElasticPlanner(val sqlContext: SQLContext, val options: ElasticOptions)
 
 object ElasticPlanner {
 
-  def apply(sqlContext: SQLContext, options: ElasticOptions) = {
-    val planner = new ElasticPlanner(sqlContext, options)
-    ConnectionManager.init(options)
+  def apply(sqlContext: SQLContext) = {
+    val planner = new ElasticPlanner(sqlContext)
     planner
   }
 }
