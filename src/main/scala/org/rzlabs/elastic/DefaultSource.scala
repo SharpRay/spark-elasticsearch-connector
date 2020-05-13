@@ -104,9 +104,9 @@ class DefaultSource extends RelationProvider with MyLogging {
 
 object DefaultSource {
 
-  private val rulesLock = new Object
+//  private val rulesLock = new Object
 
-  private var physicalRulesAdded = false
+//  private var physicalRulesAdded = false
 
   val ELASTIC_HOST = "host"
   val ELASTIC_INDEX = "index"

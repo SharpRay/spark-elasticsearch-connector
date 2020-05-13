@@ -24,6 +24,18 @@ trait LimitTransform {
      * [[org.apache.spark.sql.execution.SparkStrategies.SpecialLimits]] strategy.
      */
     case (eqb, ReturnAnswer(child)) => limitTransform(eqb, child)
+    case (eqb, Project(_, Sort(orderExprs, _, child: Project))) =>
+      val eqbs = plan(eqb, child).map { eqb =>
+        orderExprs.foldLeft(Some(eqb).asInstanceOf[Option[ElasticQueryBuilder]]) {
+          case (Some(eqb1), SortOrder(AttributeReference(nm, dt, _, _), direction, _, _)) =>
+            direction match {
+              case Ascending => eqb1.orderBy(nm, Order.ASC)
+              case Descending => eqb1.orderBy(nm, Order.DESC)
+            }
+          case (oeqb, _) => oeqb
+        }
+      }
+      Utils.sequence(eqbs.toList).getOrElse(Nil)
     case (eqb, sort @ Sort(orderExprs, global, child: Project)) =>
       val eqbs = plan(eqb, child).map { eqb =>
         orderExprs.foldLeft(Some(eqb).asInstanceOf[Option[ElasticQueryBuilder]]) {
