@@ -24,7 +24,8 @@ case class ElasticQueryBuilder(relationInfo: ElasticRelationInfo,
                                origProjectList: Option[Seq[NamedExpression]] = None,
                                origFilter: Option[Expression] = None,
                                hasUnpushedProjections: Boolean = false,
-                               hasUnpushedFilters: Boolean = false) {
+                               hasUnpushedFilters: Boolean = false,
+                               hasOffsetAggregate: Boolean = false) {
 
   def elasticCoumn(name: String): Option[ElasticRelationColumn] = {
     relationInfo.indexInfo.columns.get(projectionAliasMap.getOrElse(name, name)).map {
@@ -78,7 +79,12 @@ case class ElasticQueryBuilder(relationInfo: ElasticRelationInfo,
     this.copy(limitSpec = Some(l))
   }
 
-  def limit(amt: Int): Option[ElasticQueryBuilder] = Some(limit(LimitSpec(amt)))
+  //def limit(amt: Int): Option[ElasticQueryBuilder] = Some(limit(LimitSpec(amt)))
+
+  def limit(amt: Int): Option[ElasticQueryBuilder] = limitSpec match {
+    case Some(spec) => Some(this)
+    case None => Some(limit(LimitSpec(amt)))
+  }
 
   def offset(o: OffsetSpec) = {
     this.copy(offsetSpec = Some(o))
@@ -98,6 +104,8 @@ case class ElasticQueryBuilder(relationInfo: ElasticRelationInfo,
     case None => throw new ElasticIndexException("Unknown field.")
 
   }
+
+  def offsetAggregate(b: Boolean) = Some(this.copy(hasOffsetAggregate = b))
 }
 
 object ElasticQueryBuilder {

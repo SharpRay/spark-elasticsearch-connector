@@ -11,7 +11,6 @@ class ElasticPlanner(val sqlContext: SQLContext)
     elasticRelationTransform.debug("elasticRelationTransform"),
     limitTransform.debug("limit"),
     offsetTransform.debug("offset")
-
   )
 
   def plan(eqb: Seq[ElasticQueryBuilder], plan: LogicalPlan): Seq[ElasticQueryBuilder] =

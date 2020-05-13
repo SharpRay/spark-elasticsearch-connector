@@ -1,9 +1,11 @@
 package org.apache.spark.sql.sources.elastic
 
+import org.apache.spark.sql.catalyst.elastic.execution.CollectOffsetExec
 import org.apache.spark.sql.catalyst.elastic.plans.logical.Offset
-import org.apache.spark.sql.catalyst.expressions.{Alias, AttributeReference, Cast, Divide, Expression, NamedExpression}
+import org.apache.spark.sql.catalyst.expressions.{Alias, AttributeReference, Cast, Divide, Expression, IntegerLiteral, Literal, NamedExpression}
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.execution._
+import org.apache.spark.sql.execution.aggregate.HashAggregateExec
 import org.apache.spark.sql.execution.datasources.LogicalRelation
 import org.apache.spark.sql.types.DoubleType
 import org.apache.spark.sql.util.ExprUtil
@@ -20,6 +22,8 @@ private[sql] class ElasticStrategy(val planner: ElasticPlanner) extends Strategy
       if (eqb.aggregateOp.isDefined) {
         // TODO: aggregation implementation
         null
+      } else if (eqb.hasOffsetAggregate) {
+        offsetPlan(lp)
       } else {
         searchPlan(eqb, lp)
       }
@@ -32,6 +36,14 @@ private[sql] class ElasticStrategy(val planner: ElasticPlanner) extends Strategy
   private def searchPlan(eqb: ElasticQueryBuilder, lp: LogicalPlan): SparkPlan = {
     lp match {
       case ReturnAnswer(child) => searchPlan(eqb, child)
+//      // TODO: remove to other user defined SparkStrategy implementation
+//      case Offset(offsetExpr, aggr @ Aggregate(_, _, _)) =>
+//        offsetPlan(offsetExpr, None, aggr)
+//      // TODO: remove to other user defined SparkStrategy implementation
+//      case Offset(offsetExpr, Limit(limitExpr, aggr @ Aggregate(_, _, _))) =>
+//        println("offset -> limit -> aggregate!!!!!!!!!!!!!!!!!!")
+//        offsetPlan(offsetExpr, Some(limitExpr), aggr)
+
       case Sort(_, _, child) => searchPlan(eqb, child)
       case Offset(_, child) => searchPlan(eqb, child)
       case Limit(_, child) => searchPlan(eqb, child)
@@ -39,6 +51,20 @@ private[sql] class ElasticStrategy(val planner: ElasticPlanner) extends Strategy
       case LogicalRelation(_, output, _, _) => searchPlan(eqb, output)
       case _ => null
     }
+  }
+
+  // TODO: remove to other user defined SparkStrategy implementation
+  private def offsetPlan(lp: LogicalPlan): SparkPlan = lp match {
+    case ReturnAnswer(child) => offsetPlan(child)
+    case Offset(IntegerLiteral(offset), Limit(IntegerLiteral(limit), aggr @ Aggregate(_, _, _))) =>
+      CollectOffsetExec(offset, limit, planLater(aggr))
+    case Offset(IntegerLiteral(offset), Limit(IntegerLiteral(limit), sort @ Sort(_, _, Aggregate(_, _, _)))) =>
+      CollectOffsetExec(offset, limit, planLater(sort))
+    case Offset(IntegerLiteral(offset), aggr @ Aggregate(_, _, _)) =>
+      CollectOffsetExec(offset, -1, planLater(aggr))
+    case Offset(IntegerLiteral(offset), sort @ Sort(_, _, Aggregate(_, _, _))) =>
+      CollectOffsetExec(offset, -1, planLater(sort))
+    case _ => null
   }
 
   private def searchPlan(eqb: ElasticQueryBuilder,
