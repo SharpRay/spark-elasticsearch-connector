@@ -1,6 +1,6 @@
 package org.apache.spark.sql.rzlabs
 
-import org.apache.spark.sql.catalyst.elastic.parser.ElasticCatalystSqlParser
+import org.apache.spark.sql.catalyst.elastic.parser.ElasticSqlParser
 import org.apache.spark.sql.catalyst.parser.ParserInterface
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.sources.elastic.{ElasticPlanner, ElasticStrategy}
@@ -40,7 +40,7 @@ object ElasticExtensionsBuilder {
     sparkConf.getAll.foreach { case (k, v) =>
       sqlConf.setConfString(k, v)
     }
-    new ElasticCatalystSqlParser(sqlConf)
+    new ElasticSqlParser(sqlConf)
   }
 
   val strategyBuilder: StrategyBuilder = sparkSession => {

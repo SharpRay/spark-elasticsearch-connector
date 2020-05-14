@@ -33,7 +33,7 @@ import org.apache.spark.sql.types.{DataType, StructType}
 /**
  * Base SQL parsing infrastructure.
  */
-abstract class ElasticAbstractSqlParser(conf: SQLConf) extends ParserInterface with Logging {
+abstract class ElasticAbstractSqlParser extends ParserInterface with Logging {
 
   /** Creates/Resolves DataType for a given SQL string. */
   override def parseDataType(sqlText: String): DataType = parse(sqlText) { parser =>
@@ -84,14 +84,14 @@ abstract class ElasticAbstractSqlParser(conf: SQLConf) extends ParserInterface w
     val lexer = new SqlBaseLexer(new UpperCaseCharStream(CharStreams.fromString(command)))
     lexer.removeErrorListeners()
     lexer.addErrorListener(ParseErrorListener)
-    lexer.legacy_setops_precedence_enbled = conf.setOpsPrecedenceEnforced
+    lexer.legacy_setops_precedence_enbled = SQLConf.get.setOpsPrecedenceEnforced
 
     val tokenStream = new CommonTokenStream(lexer)
     val parser = new SqlBaseParser(tokenStream)
     parser.addParseListener(PostProcessor)
     parser.removeErrorListeners()
     parser.addErrorListener(ParseErrorListener)
-    parser.legacy_setops_precedence_enbled = conf.setOpsPrecedenceEnforced
+    parser.legacy_setops_precedence_enbled = SQLConf.get.setOpsPrecedenceEnforced
 
     try {
       try {
@@ -125,13 +125,13 @@ abstract class ElasticAbstractSqlParser(conf: SQLConf) extends ParserInterface w
 /**
  * Concrete SQL parser for Catalyst-only SQL statements.
  */
-class ElasticCatalystSqlParser(conf: SQLConf) extends ElasticAbstractSqlParser(conf) {
+class ElasticCatalystSqlParser(conf: SQLConf) extends ElasticAbstractSqlParser {
   val astBuilder = new ElasticAstBuilder(conf)
 }
 
 /** For test-only. */
-object CatalystSqlParser extends ElasticAbstractSqlParser(SQLConf.get) {
-  val astBuilder = new ElasticAstBuilder(SQLConf.get)
+object CatalystSqlParser extends ElasticAbstractSqlParser {
+  val astBuilder = new ElasticAstBuilder(new SQLConf())
 }
 
 /**

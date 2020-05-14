@@ -1,13 +1,13 @@
-val sparkVersion = "2.4.5"
+enablePlugins(Antlr4Plugin)
+
+val sparkVersion = "2.4.3"
 val jodaVersion = "2.10.5"
 val jacksonVersion = "2.10.3"
 val apacheHttpVersion = "4.5.11"
 
-val excludeBaseSqlParserBinding = ExclusionRule(organization = "org.apache.spark.sql.catalyst.parser")
-
 val myDependencies = Seq(
-  "org.apache.spark" %% "spark-core" % sparkVersion % "provided" excludeAll(excludeBaseSqlParserBinding),
-  "org.apache.spark" %% "spark-sql" % sparkVersion % "provided" excludeAll(excludeBaseSqlParserBinding),
+  "org.apache.spark" %% "spark-core" % sparkVersion % "provided",
+  "org.apache.spark" %% "spark-sql" % sparkVersion % "provided",
   "joda-time" % "joda-time" % jodaVersion,
   "com.fasterxml.jackson.core" % "jackson-core" % jacksonVersion,
   "com.fasterxml.jackson.core" % "jackson-annotations" % jacksonVersion,
@@ -25,9 +25,14 @@ lazy val commonSettings = Seq(
   organization := "org.rzlabs",
   version := "1.0.0-SNAPSHOT",
   scalaVersion := "2.11.12",
-  scalacOptions += "-target:jvm-1.8",
-  javacOptions in compile ++= Seq("-source", "1.8", "-target", "1.8"),
-  test in assembly := {}
+  antlr4Version in Antlr4 := "4.7.1",
+  antlr4PackageName in Antlr4 := Some("org.apache.spark.sql.catalyst.elastic.parser"),
+  antlr4GenListener in Antlr4 := true,
+  antlr4GenVisitor in Antlr4 := true,
+  antlr4TreatWarningsAsErrors in Antlr4 := true,
+//  scalacOptions += "-target:jvm-1.8",
+//  javacOptions in compile ++= Seq("-source", "1.8", "-target", "1.8"),
+//  test in assembly := {}
 )
 
 lazy val root = (project in file("."))
