@@ -70,6 +70,7 @@ spark.sql("""
 * `Like` and `RLike` predicates will be pushed down as `wildcard` and `regexp` queries.
 * `And` and `Or` predicates will be pushed down as `bool` query.
 * `EqualTo` predicate will be pushed down as `term` query.
+* `LessThan`, `GreaterThan` etc. comparison predicates will be pushed down as `range` query.
 * `In` predicate will be pushed down as `terms` query.
 * `Sort`operator will be pushed down as `sort` parameter. 
 * Support Join/Union operator. You can join or union es index with other datasources without any performance degradation.
