@@ -143,5 +143,5 @@ object DefaultSource {
   val DEFAULT_NULL_FILL_NONEXISTENT_FIELD_VALUE = "false"
 
   val DEFAULT_LIMIT = "defaultLimit"
-  val DEFAULT_DEFAULT_LIMIT = "10000"
+  val DEFAULT_DEFAULT_LIMIT = Int.MaxValue.toString
 }

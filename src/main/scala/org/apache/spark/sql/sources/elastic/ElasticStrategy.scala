@@ -5,7 +5,6 @@ import org.apache.spark.sql.catalyst.elastic.plans.logical.Offset
 import org.apache.spark.sql.catalyst.expressions.{Alias, AttributeReference, Cast, Divide, Expression, IntegerLiteral, Literal, NamedExpression}
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.execution._
-import org.apache.spark.sql.execution.aggregate.HashAggregateExec
 import org.apache.spark.sql.execution.datasources.LogicalRelation
 import org.apache.spark.sql.types.DoubleType
 import org.apache.spark.sql.util.ExprUtil
