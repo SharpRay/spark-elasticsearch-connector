@@ -36,14 +36,6 @@ private[sql] class ElasticStrategy(val planner: ElasticPlanner) extends Strategy
   private def searchPlan(eqb: ElasticQueryBuilder, lp: LogicalPlan): SparkPlan = {
     lp match {
       case ReturnAnswer(child) => searchPlan(eqb, child)
-//      // TODO: remove to other user defined SparkStrategy implementation
-//      case Offset(offsetExpr, aggr @ Aggregate(_, _, _)) =>
-//        offsetPlan(offsetExpr, None, aggr)
-//      // TODO: remove to other user defined SparkStrategy implementation
-//      case Offset(offsetExpr, Limit(limitExpr, aggr @ Aggregate(_, _, _))) =>
-//        println("offset -> limit -> aggregate!!!!!!!!!!!!!!!!!!")
-//        offsetPlan(offsetExpr, Some(limitExpr), aggr)
-
       case Sort(_, _, child) => searchPlan(eqb, child)
       case Offset(_, child) => searchPlan(eqb, child)
       case Limit(_, child) => searchPlan(eqb, child)
