@@ -28,7 +28,7 @@ val df = spark.read.format("org.rzlabs.elastic")
   .option("host": "localhost:9200")
   .load
 df.createOrReplacTempView("news")
-spark.sql("select title, publish_time from news where publish_time >= '2020-01-01T00:00L00' order by pblish_time DESC").show
+spark.sql("select title, publish_time from news where publish_time >= '2020-01-01T00:00:00' order by publish_time DESC limit 10 offset 10").show
 ```
 
 or you can create a hive table:
