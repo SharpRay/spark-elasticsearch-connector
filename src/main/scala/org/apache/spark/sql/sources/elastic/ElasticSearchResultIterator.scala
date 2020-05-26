@@ -51,7 +51,7 @@ private class ElasticSearchResultStreamingIterator(relationInfo: ElasticRelation
         case (k, v) =>
           relationInfo.indexInfo.columns.get(k) match {
             case Some(ec) => (k, processValue(v, ec.property))
-            case None => throw new ElasticIndexException("WTF?")
+            case None => throw new ElasticIndexException("WTF? The field is not in mappings!?")
           }
       }
       val r: SearchResultRow = SearchResultRow(event)
