@@ -86,6 +86,7 @@ class ElasticRDD(sqlContext: SQLContext,
       val row = new GenericInternalRow(schema.fields.map { field =>
         info.indexInfo.columns.get(field.name) match {
           case Some(ec) =>
+            println("event === " + r.event)
             val value = r.event.get(field.name) match {
               case Some(v) => v
               case _ if info.options.nullFillNonexistentFieldValue => null

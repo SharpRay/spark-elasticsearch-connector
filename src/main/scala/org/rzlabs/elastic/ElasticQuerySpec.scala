@@ -58,8 +58,9 @@ sealed trait QuerySpec extends Product {
   def mapSparkColNameToElasticColName(info: ElasticRelationInfo): Map[String, String] = Map()
 }
 
-@JsonIgnoreProperties(Array("index", "type"))
-case class SearchQuerySpec(index: String,
+@JsonIgnoreProperties(Array("relationInfo", "index", "type"))
+case class SearchQuerySpec(relationInfo: ElasticRelationInfo,
+                           index: String,
                            `type`: Option[String],
                            @JsonProperty("_source") columns: List[String],
                            @JsonProperty("query") filter: Option[FilterSpec],
@@ -88,7 +89,7 @@ case class SearchQuerySpec(index: String,
                      conn: ElasticClient,
                      onDone: => Unit = (),
                      fromList: Boolean = false): CloseableIterator[ResultRow] = {
-    ElasticSearchResultIterator(is, onDone, fromList)
+    ElasticSearchResultIterator(relationInfo, is, onDone, fromList)
   }
 }
 

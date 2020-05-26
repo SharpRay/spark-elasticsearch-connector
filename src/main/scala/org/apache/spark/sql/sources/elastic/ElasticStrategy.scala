@@ -10,6 +10,7 @@ import org.apache.spark.sql.types.DoubleType
 import org.apache.spark.sql.util.ExprUtil
 import org.apache.spark.sql.{MyLogging, Strategy}
 import org.rzlabs.elastic._
+import org.rzlabs.elastic.client.NestedProperty
 import org.rzlabs.elasticsearch.{ElasticAttribute, ElasticQuery, ElasticRelation}
 
 private[sql] class ElasticStrategy(val planner: ElasticPlanner) extends Strategy
@@ -67,8 +68,17 @@ private[sql] class ElasticStrategy(val planner: ElasticPlanner) extends Strategy
       for (na <- exprs;
            attr <- na.references;
            ec <- eqb.elasticCoumn(attr.name)) {
-        eqb1 = eqb1.outputAttribute(attr.name, attr, attr.dataType,
-          ElasticDataType.sparkDataType(ec.dataType), null)
+        eqb1 = ec.dataType match {
+          case ElasticDataType.Nested =>
+            eqb1.outputAttribute(attr.name, attr, attr.dataType,
+              ElasticDataType.sparkDataType(ec.dataType,
+                ec.elasticColumn
+                  .getOrElse(throw new ElasticIndexException(s"WTF? The column ${ec.column} is not pushed down!?"))
+                  .property.asInstanceOf[NestedProperty]), null)
+          case _ =>
+            eqb1.outputAttribute(attr.name, attr, attr.dataType,
+              ElasticDataType.sparkDataType(ec.dataType), null)
+        }
       }
     }
 
@@ -90,6 +100,7 @@ private[sql] class ElasticStrategy(val planner: ElasticPlanner) extends Strategy
 //      eqb1.sortSpec.map(_.sort))
 
     val qrySpec: QuerySpec = SearchQuerySpec(
+      eqb1.relationInfo,
       eqb1.relationInfo.options.index,
       eqb1.relationInfo.options.`type`,
       columns,

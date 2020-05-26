@@ -214,7 +214,6 @@ class ElasticClient(val host: String,
         if (status >= 200 && status < 300) {
           qrySpec(r.getEntity.getContent, this, release(r))
         } else {
-          println("payload =============== " + payload)
           throw new ElasticIndexException(s"Unexpected response status: ${r.getStatusLine} " +
             s"on $url for query: " +
             s"\n ${Utils.toPrettyJson(Right(payload))}")
