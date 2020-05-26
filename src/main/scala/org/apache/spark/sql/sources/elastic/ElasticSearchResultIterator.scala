@@ -169,51 +169,6 @@ private abstract class ElasticSearchResultIterator(relationInfo: ElasticRelation
       case _ => v
     }
   }
-
-  def processRow(kv: (String, Any)): (String, Any) = {
-    kv._2 match {
-      case v if v.isInstanceOf[Seq[Map[String, Any]]] =>
-        (kv._1,
-          relationInfo.indexInfo.columns.get(kv._1).map { ec =>
-            ec.property match {
-              case prop if prop.isInstanceOf[NestedProperty] =>
-                val nestedFieldNum = prop.asInstanceOf[NestedProperty].properties.size
-                val valArr = Array.fill[Seq[Any]](nestedFieldNum)(Seq[Any]())
-                v.asInstanceOf[Seq[Map[String, Any]]] foreach { m =>
-                  prop.asInstanceOf[NestedProperty].properties.keys.zipWithIndex.foreach {
-                    case (k, idx) =>
-                      m.get(k) match {
-                        case Some(s) => valArr(idx) = valArr(idx) :+ s
-                        case None => valArr(idx) = valArr(idx) :+ null
-                      }
-                  }
-                }
-                InternalRow.fromSeq(
-                  valArr.map(seq => UTF8String.fromString(jsonMapper.writeValueAsString(seq))))
-              case _ => throw new ElasticIndexException("WTF? Non-nested-type field with nested value!?")
-            }
-          } orNull)
-      case v if v.isInstanceOf[Map[String, Any]] =>
-        (kv._1,
-          relationInfo.indexInfo.columns.get(kv._1).map { ec =>
-            ec.property match {
-              case prop if prop.isInstanceOf[NestedProperty] =>
-                var valSeq = Seq[Any]()
-                prop.asInstanceOf[NestedProperty].properties.keys.foreach { k =>
-                  v.asInstanceOf[Map[String, Any]].get(k) match {
-                    case Some(s) if s.isInstanceOf[String] =>
-                      valSeq = valSeq :+ UTF8String.fromString(s.asInstanceOf[String])
-                    case Some(ns) => valSeq = valSeq :+ ns
-                    case None => valSeq = valSeq :+ null
-                  }
-                }
-                InternalRow.fromSeq(valSeq)
-              case _ => throw new ElasticIndexException("WTF? Non-nested-type field with nested value!?")
-            }
-          } orNull)
-      case v => (kv._1, v)
-    }
-  }
 }
 
 object ElasticSearchResultIterator {
