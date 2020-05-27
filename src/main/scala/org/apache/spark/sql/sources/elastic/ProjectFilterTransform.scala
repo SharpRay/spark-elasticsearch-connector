@@ -7,6 +7,7 @@ import org.apache.spark.sql.execution.datasources.LogicalRelation
 import org.apache.spark.sql.util.ExprUtil
 import org.apache.spark.unsafe.types.UTF8String
 import org.rzlabs.elastic._
+import org.rzlabs.elastic.client.{IndexProperty, NestedProperty}
 import org.rzlabs.elasticsearch.ElasticRelation
 
 trait ProjectFilterTransform {
@@ -77,8 +78,11 @@ trait ProjectFilterTransform {
         case IsNotNull(AttributeReference(nm, _, _, _)) =>
           for (ec <- eqb.elasticCoumn(nm))
             yield new ExistsFilterSpec(ec.column)
+          // TODO: Global Filter operator
+          for (ec <- eqb.elasticCoumn(nm) if ec.dataType == ElasticDataType.Nested)
+            yield DummyFilterSpec()
         case IsNull(AttributeReference(nm, _, _, _)) =>
-          for (ec <- eqb.elasticCoumn(nm))
+          for (ec <- eqb.elasticCoumn(nm) if ec.dataType != ElasticDataType.Nested)
             //yield BoolExpressionFilterSpec(
             //  ConjExpressionFilterSpec(mustNot = List(new ExistsFilterSpec(ec.column))))
             yield BoolExpressionFilterSpec(ConjExpressionFilterSpec(
@@ -119,6 +123,30 @@ trait ProjectFilterTransform {
   }
 
   object ValidElasticNativeComparison {
+
+    private def findRootAttribute(field: Expression,
+                                  pathItems: Seq[String]): (AttributeReference, Seq[String]) = field match {
+      case e @ AttributeReference(nm, _, _, _) => (e, Seq(nm) ++ pathItems)
+      case e @ GetStructField(_, _, Some(nm)) => findRootAttribute(e.child, Seq(nm) ++ pathItems)
+      case _ =>
+        throw new ElasticIndexException("WTF? The nested field's root is not type of AttributeReference!?")
+    }
+
+    private def findIndexProperty(eqb: ElasticQueryBuilder, pathItems: Seq[String]): Option[IndexProperty] = {
+      pathItems match {
+        case head :: tail =>
+          val ec: ElasticColumn = eqb.elasticCoumn(head).flatMap(_.elasticColumn)
+            .getOrElse(throw new ElasticIndexException(s"WTF? The column '${head}' not exist."))
+          tail.foldLeft[Option[IndexProperty]](Some(ec.property)) { (oprop, item) =>
+            oprop match {
+              case Some(prop) if prop.isInstanceOf[NestedProperty] =>
+                prop.asInstanceOf[NestedProperty].properties.get(item)
+              case Some(_) => oprop
+              case None => None
+            }
+          }
+      }
+    }
 
     def unapply(t: (ElasticQueryBuilder, Expression)): Option[FilterSpec] = {
       val eqb = t._1
@@ -169,8 +197,7 @@ trait ProjectFilterTransform {
           for (ec <- eqb.elasticCoumn(nm)
                if ElasticDataType.sparkDataType(ec.dataType) == dt)
             yield RegexpFilterSpec(ec, ec.column, value.toString)
-        case EqualTo(AttributeReference(nm, dt, _, _), Literal(value, _))
-          if value.isInstanceOf[UTF8String] =>
+        case EqualTo(AttributeReference(nm, dt, _, _), Literal(value: UTF8String, _)) =>
           for (ec <- eqb.elasticCoumn(nm)
                if ElasticDataType.sparkDataType(ec.dataType) == dt)
             yield TermFilterSpec(ec, ec.column, value.toString)
@@ -178,6 +205,18 @@ trait ProjectFilterTransform {
           for (ec <- eqb.elasticCoumn(nm)
                if ElasticDataType.sparkDataType(ec.dataType) == dt)
             yield TermFilterSpec(ec, ec.column, value);
+
+        case EqualTo(GetStructField(child, _, Some(nm)), Literal(value: UTF8String, _)) =>
+          val (rootAttr, pathItems) = findRootAttribute(child, Nil)
+          for (ec <- eqb.elasticCoumn(rootAttr.name); c <- ec.elasticColumn
+            if c.property.isInstanceOf[NestedProperty] &&
+              ElasticDataType.sparkDataType(ec.dataType,
+                c.property.asInstanceOf[NestedProperty]) == rootAttr.dataType)
+            yield NestedFilterSpec(pathItems.mkString("."),
+              TermFilterSpec(findIndexProperty(eqb, pathItems)
+                .getOrElse(throw new ElasticIndexException("WTF?")),
+                (pathItems :+ nm).mkString("."), value.toString))
+
         case EqualTo(Literal(value, _), AttributeReference(nm, dt, _, _)) =>
           for (ec <- eqb.elasticCoumn(nm)
                if ElasticDataType.sparkDataType(ec.dataType) == dt)

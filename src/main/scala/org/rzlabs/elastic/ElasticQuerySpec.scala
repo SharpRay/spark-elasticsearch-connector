@@ -7,7 +7,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import org.apache.spark.sql.sources.elastic.{CloseableIterator, ElasticSearchResultIterator}
 import org.apache.spark.sql.types.{StructField, StructType}
-import org.rzlabs.elastic.client.{ElasticClient, ResultRow}
+import org.rzlabs.elastic.client.{ElasticClient, IndexProperty, ResultRow, TextProperty}
 import org.rzlabs.elastic.metadata.{ElasticRelationColumn, ElasticRelationInfo}
 
 object Order extends Enumeration {
@@ -220,11 +220,39 @@ object TermFilterSpec {
         Map[String, Any](name -> value)
       )
   }
+
+  def apply(property: IndexProperty, name: String, value: Any) = property match {
+    case prop: TextProperty if prop.keywordFields().isDefined =>
+      prop.keywordFields().get match {
+        case Nil =>
+          throw new ElasticIndexException(
+            "Text type column without keyword field cannot be applied EqualTo expression.")
+        case head :: _ =>
+          new TermFilterSpec(
+            Map[String, Any](s"$name.$head" -> value))
+      }
+    case prop: TextProperty =>
+      throw new ElasticIndexException(
+        "Text type column without keyword field cannot be applied EqualTo expression.")
+    case _ =>
+      new TermFilterSpec(Map[String, Any](name -> value))
+  }
 }
 
 case class TermsFilterSpec(terms: Map[String, List[Any]]) extends FilterSpec {
   def this(name: String, vals: List[Any]) {
     this(Map[String, List[Any]](name -> vals))
+  }
+}
+
+case class NestedFilterSpec(nested: NestedFilter) extends FilterSpec
+
+case class NestedFilter(path: String, query: FilterSpec)
+
+object NestedFilterSpec {
+
+  def apply(path: String, query: FilterSpec) = {
+    new NestedFilterSpec(NestedFilter(path, query))
   }
 }
 
@@ -276,6 +304,16 @@ object ColumnComparisonFilterSpec {
       )
   }
 }
+
+case class DummyFilterSpec(script: InlineScriptSpec) extends FilterSpec
+
+object DummyFilterSpec {
+
+  def apply() = {
+    new DummyFilterSpec(InlineScriptSpec(new InlineSpec("1==1")))
+  }
+}
+
 
 //sealed trait ConjExpressionFilterSpec extends FilterSpec
 //
