@@ -7,7 +7,7 @@ import com.fasterxml.jackson.core.`type`.TypeReference
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.unsafe.types.UTF8String
 import org.apache.spark.util.NextIterator
-import org.rzlabs.elastic.client.{IndexProperty, NestedProperty, ResultRow, SearchResultRow}
+import org.rzlabs.elastic.client.{IndexProperty, KeywordProperty, NestedProperty, ResultRow, SearchResultRow, TextProperty}
 import org.fasterxml.jackson.databind.ObjectMapper.jsonMapper
 import org.rzlabs.elastic.ElasticIndexException
 import org.rzlabs.elastic.metadata.ElasticRelationInfo
@@ -47,14 +47,14 @@ private class ElasticSearchResultStreamingIterator(relationInfo: ElasticRelation
     if (token == JsonToken.START_OBJECT) {
       val event: Map[String, Any] =
         jsonMapper.readValue(parser, new TypeReference[Map[String, Any]]() {})("_source")
-          .asInstanceOf[Map[String, Any]].map {
+          .asInstanceOf[Map[String, Any]]
+      val r: SearchResultRow = SearchResultRow(event.map {
         case (k, v) =>
           relationInfo.indexInfo.columns.get(k) match {
             case Some(ec) => (k, processValue(v, ec.property))
             case None => throw new ElasticIndexException("WTF? The field is not in mappings!?")
           }
-      }
-      val r: SearchResultRow = SearchResultRow(event)
+      })
       previousToken = token
       token = parser.nextToken()
       r
@@ -165,7 +165,10 @@ private abstract class ElasticSearchResultIterator(relationInfo: ElasticRelation
         }
       case v: Seq[_] if v.isEmpty => null
       case v: Seq[_] =>
-        InternalRow.fromSeq(v)
+//        InternalRow.fromSeq(v)
+        UTF8String.fromString(jsonMapper.writeValueAsString(v))
+      case v if v != null && (property.isInstanceOf[KeywordProperty] || property.isInstanceOf[TextProperty]) =>
+        UTF8String.fromString(v.toString)
       case _ => v
     }
   }

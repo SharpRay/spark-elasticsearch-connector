@@ -65,7 +65,6 @@ object ElasticDataType extends Enumeration {
   }
 
   private def sparkStructType(property: NestedProperty): StructType = {
-    println("property =========================== " + property)
     StructType(property.properties.map(p => {
       val fieldName = p._1
       val fieldType = p._2.dataType match {
