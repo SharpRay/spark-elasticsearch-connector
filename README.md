@@ -37,7 +37,7 @@ or you can create a hive table:
 spark.sql("""
   create table news using org.rzlabs.elastic options (
     index "news",
-    host: "localhost:9200"
+    host "localhost:9200"
   )
 """)
 ```
